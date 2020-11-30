@@ -18,18 +18,24 @@ GtkWidget *drawingArea;
 
 float rotorDegree=0;
 mutex displayLock;
+mutex updateTextLock;
 
 GtkWidget *degreeInputBox;
 
 static cairo_surface_t *surface = NULL;
 static void drawCompass(bool newSurface);
 
-void updateTextBox(float degree) {
+void updateTextBox(float degree, bool forceRedraw) {
   char tmpstr[32];
   sprintf(tmpstr,"%.1f", degree);
-  gtk_entry_set_text(GTK_ENTRY(degreeInputBox),tmpstr);
-  gtk_widget_queue_draw(degreeInputBox);
-  gtk_widget_show(degreeInputBox);
+
+  if (forceRedraw) {
+    updateTextLock.lock();
+    gtk_entry_set_text(GTK_ENTRY(degreeInputBox),tmpstr);
+    gtk_widget_queue_draw(degreeInputBox);
+    gtk_widget_show(degreeInputBox);
+    updateTextLock.unlock();
+  }
 }
 
 static void moveExact(GtkWidget *widget, gpointer data) {
@@ -92,7 +98,7 @@ static void moveExact(GtkWidget *widget, gpointer data) {
     if (d>=0 && d<360) {
       rotorDegree=d;   
       logger.info("Move to %s", s);
-      updateTextBox(d);
+      updateTextBox(d, false);
       return;
     }
     throw (runtime_error("unknown error"));
@@ -101,7 +107,7 @@ static void moveExact(GtkWidget *widget, gpointer data) {
   } catch (...) {
     logger.error("invalid degree entered in text box %s", raw);
   }
-  updateTextBox(rotorDegree);
+  updateTextBox(rotorDegree, false);
 
 }
 
@@ -278,7 +284,7 @@ void renderCompass() {
         logger.warn("unhandled exception in renderCompass");
       }
       usleep(60*1000);
-      updateTextBox(currDegree);
+      updateTextBox(currDegree, true);
     }
   }
 }
