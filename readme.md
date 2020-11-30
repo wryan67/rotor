@@ -1,6 +1,10 @@
 Antenna Rotor Controller
 ------------------------
 
+Prerequisites:
+
+    $ sudo apt install libgtk-3-dev
+
 Download:
 
     git clone https://github.com/wryan67/rotor.git
