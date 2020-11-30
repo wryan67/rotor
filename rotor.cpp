@@ -16,6 +16,7 @@ using namespace common::synchronized;
 Logger logger("main");
 GtkWidget *drawingArea;
 
+float actualRotorDegree=999;
 float rotorDegree=0;
 mutex displayLock;
 mutex updateTextLock;
@@ -170,8 +171,16 @@ static void drawCompass(bool newSurface) {
   /* Paint to the surface, where we store our state */
   cr = cairo_create(surface);
 
-  cairo_set_source_rgb (cr, 246/255.0, 245/255.0, 244/255.0);
-  cairo_paint(cr);
+//  CAIRO_CONTENT_COLOR;
+  // GdkRGBA bgColor {
+  //   246,245,244,1
+  // };
+  // auto bgColor = CAIRO_CONTENT_COLOR;
+
+  // gdk_cairo_set_source_rgba(cr, &bgColor);
+
+//  cairo_set_source_rgb (cr, 246/255.0, 245/255.0, 244/255.0);
+//   cairo_paint(cr);
 
   cairo_set_source_rgb (cr,  1,1,1);
   cairo_arc(cr, x, y, radius, 0,2*M_PI);
@@ -249,7 +258,8 @@ void createDrawingSurface(GtkWidget *widget) {
     gtk_widget_set_margin_top(widget, margin);
   }
 
-  surface = gdk_window_create_similar_surface(window, CAIRO_CONTENT_COLOR, width, height);
+//  CAIRO_CONTENT_COLOR
+  surface = gdk_window_create_similar_surface(window, CAIRO_CONTENT_COLOR_ALPHA, width, height);
 
   drawCompass(true);
 }
