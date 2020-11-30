@@ -2,12 +2,16 @@
 #include <log4pi.h>
 #include <math.h>
 #include <thread>
+#include <mutex>
 
 using namespace std;
 using namespace common::utility;
 
 Logger logger("main");
 GtkWidget *drawingArea;
+
+float rotorDegree=0;
+mutex displayLock;
 
 static cairo_surface_t *surface = NULL;
 static void drawCompass();
@@ -26,8 +30,7 @@ static void moveRight (GtkWidget *widget, gpointer data) {
 }
 
 static void drawCompass() {
-
-  logger.info("draw compass");
+  displayLock.lock();
   cairo_t *cr;
   guint width, height;
   // GdkRGBA color;
@@ -41,6 +44,7 @@ static void drawCompass() {
   gdouble y=height/2.0-1;
 
   int radius = x-2;
+  auto degree=rotorDegree;
 
 
   /* Paint to the surface, where we store our state */
@@ -61,7 +65,6 @@ static void drawCompass() {
   cairo_arc(cr, x, y, x-2, 0,2*M_PI);
   cairo_stroke(cr);
 
-  float degree = 0;
   radius-=5;
   double xPoint = radius * cos(degree * M_PI / 180.0);
   double yPoint = radius * sin(degree * M_PI / 180.0);
@@ -74,7 +77,7 @@ static void drawCompass() {
   cairo_close_path (cr);
   cairo_stroke(cr);
 
-  radius-=7;
+  radius-=(8*(x/150));
   degree-=3;
   xPoint = radius * cos(degree * M_PI / 180.0);
   yPoint = radius * sin(degree * M_PI / 180.0);
@@ -99,7 +102,7 @@ static void drawCompass() {
   gtk_widget_queue_draw(drawingArea);
   gtk_widget_show(drawingArea);
   cairo_destroy(cr);
-
+  displayLock.unlock();
 }
 
 void createDrawingSurface(GtkWidget *widget) {
@@ -167,10 +170,13 @@ void renderCompass() {
   while (drawingArea==nullptr) {
     usleep(50*1000);
   }
-
+  auto lastDegree=-1;
   while (true) {
-    drawCompass();
-    usleep(20*1000);
+    if (lastDegree!=rotorDegree) {
+      lastDegree=rotorDegree;
+      drawCompass();
+      usleep(60*1000);
+    }
   }
 }
 
@@ -215,7 +221,8 @@ int main(int argc, char **argv) {
 
   logger.tag(1,"here");
 
-  thread(renderCompass);
+  thread compass(renderCompass);
+
 
   gtk_main();
 
