@@ -34,13 +34,6 @@ void updateTextBox(float degree, bool forceRedraw) {
   gtk_entry_set_text(GTK_ENTRY(degreeInputBox),degreeTextBox);
   
   updateTextLock.unlock();
-
-  // if (forceRedraw) {
-  //   updateTextLock.lock();
-  //   gtk_widget_queue_draw(degreeInputBox);
-  //   gtk_widget_show(degreeInputBox);
-  //   updateTextLock.unlock();
-  // }
 }
 
 static void moveExact(GtkWidget *widget, gpointer data) {
