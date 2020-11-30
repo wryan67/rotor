@@ -24,14 +24,12 @@ GtkWidget *degreeInputBox;
 static cairo_surface_t *surface = NULL;
 static void drawCompass(bool newSurface);
 
-void updateTextBox(int forceRedraw) {
+void updateTextBox(float degree) {
   char tmpstr[32];
-  sprintf(tmpstr,"%d", (int)rotorDegree);
-  if (forceRedraw) {
-    gtk_entry_set_text(GTK_ENTRY(degreeInputBox),tmpstr);
-    gtk_widget_queue_draw(degreeInputBox);
-    gtk_widget_show(degreeInputBox);
-  }
+  sprintf(tmpstr,"%.1f", degree);
+  gtk_entry_set_text(GTK_ENTRY(degreeInputBox),tmpstr);
+  gtk_widget_queue_draw(degreeInputBox);
+  gtk_widget_show(degreeInputBox);
 }
 
 static void moveExact(GtkWidget *widget, gpointer data) {
@@ -50,7 +48,7 @@ static void moveExact(GtkWidget *widget, gpointer data) {
     if (isAlpha && isalpha(raw[i])) {
       *c++=(char)tolower(raw[i]);    
       // ++p;
-    } else if (!isAlpha && cDigit) {
+    } else if (!isAlpha && (cDigit || raw[i]=='.')) {
         *c++=(char)raw[i];    
         // ++p;
     }
@@ -93,8 +91,8 @@ static void moveExact(GtkWidget *widget, gpointer data) {
     }
     if (d>=0 && d<360) {
       rotorDegree=d;   
-      g_print("Move to %s\n", s);
-      updateTextBox(true);
+      logger.info("Move to %s", s);
+      updateTextBox(d);
       return;
     }
     throw (runtime_error("unknown error"));
@@ -103,7 +101,7 @@ static void moveExact(GtkWidget *widget, gpointer data) {
   } catch (...) {
     logger.error("invalid degree entered in text box %s", raw);
   }
-  updateTextBox(true);
+  updateTextBox(rotorDegree);
 
 }
 
@@ -113,7 +111,7 @@ static void moveCounterClockwise(GtkWidget *widget, gpointer data) {
     newDegree+=360;
   }
   rotorDegree=newDegree;
-  g_print("Move counter clockwise\n");
+  logger.info("Move to %f; <<moving counter-clockwise>>",newDegree);
 }
 
 static void moveClockwise(GtkWidget *widget, gpointer data) {
@@ -122,7 +120,7 @@ static void moveClockwise(GtkWidget *widget, gpointer data) {
     newDegree-=360;
   }
   rotorDegree=newDegree;
-  g_print("Move clockwise\n");
+  logger.info("Move to %f; <<moving clockwise>>",newDegree);
 }
 
 static void drawCompass(bool newSurface) {
@@ -264,10 +262,12 @@ void renderCompass() {
   while (drawingArea==nullptr) {
     usleep(50*1000);
   }
-  auto lastDegree=-1;
+  float lastDegree=999;
   while (true) {
-    int currDegree=rotorDegree+0.5;
-    if (lastDegree!=currDegree) {
+    auto currDegree=rotorDegree;
+    auto min=currDegree-0.5;
+    auto max=currDegree+0.5;
+    if (lastDegree<min || lastDegree>max) {
       lastDegree=currDegree;
       try {
         gtk_widget_queue_draw(drawingArea);
@@ -278,8 +278,7 @@ void renderCompass() {
         logger.warn("unhandled exception in renderCompass");
       }
       usleep(60*1000);
-      logger.info("degree=%d",lastDegree);
-      updateTextBox(true);
+      updateTextBox(currDegree);
     }
   }
 }

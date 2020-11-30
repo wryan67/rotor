@@ -55,7 +55,7 @@
       <object class="GtkPaned">
         <property name="visible">True</property>
         <property name="can_focus">True</property>
-        <property name="position">192</property>
+        <property name="position">196</property>
         <property name="position_set">True</property>
         <child>
           <object class="GtkGrid">
@@ -69,8 +69,8 @@
                 <property name="tooltip_text" translatable="yes">Degrees to move to</property>
                 <property name="halign">end</property>
                 <property name="valign">start</property>
-                <property name="max_length">4</property>
-                <property name="width_chars">4</property>
+                <property name="max_length">5</property>
+                <property name="width_chars">5</property>
                 <property name="max_width_chars">3</property>
                 <property name="caps_lock_warning">False</property>
               </object>
