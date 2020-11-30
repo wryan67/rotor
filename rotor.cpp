@@ -109,22 +109,36 @@ static void moveExact(GtkWidget *widget, gpointer data) {
 
 }
 
-static void moveCounterClockwise(GtkWidget *widget, gpointer data) {
-  auto newDegree=rotorDegree-1;
+
+static void moveRotor(int degrees) {
+  auto newDegree=rotorDegree+degrees;
   if (newDegree<0) {
     newDegree+=360;
   }
-  rotorDegree=newDegree;
-  logger.info("Move to %.1f; <<moving counter-clockwise>>",newDegree);
-}
-
-static void moveClockwise(GtkWidget *widget, gpointer data) {
-  auto newDegree=rotorDegree+1;
-  if (newDegree>359) {
+  if (newDegree>=360) {
     newDegree-=360;
   }
+
   rotorDegree=newDegree;
-  logger.info("Move to %.1f; <<moving clockwise>>",newDegree);
+  if (degrees>0) {
+    logger.info("Move to %.1f; <<moving counter-clockwise>>",newDegree);
+  } else {
+    logger.info("Move to %.1f; <<moving counter-clockwise>>",newDegree);
+  }
+}
+
+
+static void moveOneCounterClockwise(GtkWidget *widget, gpointer data) {
+  moveRotor(-1);
+}
+static void moveOneClockwise(GtkWidget *widget, gpointer data) {
+  moveRotor(1);
+}
+static void moveTenCounterClockwise(GtkWidget *widget, gpointer data) {
+  moveRotor(-10);
+}
+static void moveTenClockwise(GtkWidget *widget, gpointer data) {
+  moveRotor(10);
 }
 
 static void drawCompass(bool newSurface) {
@@ -311,10 +325,17 @@ int main(int argc, char **argv) {
   g_signal_connect (button, "clicked", G_CALLBACK (moveExact), NULL);
 
   button = gtk_builder_get_object (builder, "MoveLeftButton");
-  g_signal_connect (button, "clicked", G_CALLBACK (moveCounterClockwise), NULL);
+  g_signal_connect (button, "clicked", G_CALLBACK (moveOneCounterClockwise), NULL);
 
   button = gtk_builder_get_object (builder, "MoveRightButton");
-  g_signal_connect (button, "clicked", G_CALLBACK (moveClockwise), NULL);
+  g_signal_connect (button, "clicked", G_CALLBACK (moveOneClockwise), NULL);
+
+  button = gtk_builder_get_object (builder, "FastReverse");
+  g_signal_connect (button, "clicked", G_CALLBACK (moveTenCounterClockwise), NULL);
+
+  button = gtk_builder_get_object (builder, "FastForward");
+  g_signal_connect (button, "clicked", G_CALLBACK (moveTenClockwise), NULL);
+
 
   button = gtk_builder_get_object (builder, "quit");
   g_signal_connect (button, "clicked", G_CALLBACK (gtk_main_quit), NULL);
