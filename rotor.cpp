@@ -24,9 +24,87 @@ GtkWidget *degreeInputBox;
 static cairo_surface_t *surface = NULL;
 static void drawCompass(bool newSurface);
 
+void updateTextBox(int forceRedraw) {
+  char tmpstr[32];
+  sprintf(tmpstr,"%d", (int)rotorDegree);
+  if (forceRedraw) {
+    gtk_entry_set_text(GTK_ENTRY(degreeInputBox),tmpstr);
+    gtk_widget_queue_draw(degreeInputBox);
+    gtk_widget_show(degreeInputBox);
+  }
+}
 
 static void moveExact(GtkWidget *widget, gpointer data) {
-  g_print("Move to\n");
+  auto raw = gtk_entry_get_text(GTK_ENTRY(degreeInputBox));
+
+  int  len=strlen(raw);
+  char s[len+1];
+  memset(s,0,len+1);
+
+  bool isAlpha=isalpha(raw[0]);
+  char *c=&s[0];
+
+  for (int i=0; i<len; ++i) {
+    bool cDigit = isdigit(raw[i]);
+
+    if (isAlpha && isalpha(raw[i])) {
+      *c++=(char)tolower(raw[i]);    
+      // ++p;
+    } else if (!isAlpha && cDigit) {
+        *c++=(char)raw[i];    
+        // ++p;
+    }
+  }
+
+  float d=999;
+  try {
+
+    while (true) {
+
+      if (!strcmp(s,"se")) { d=45;  break; }
+      if (!strcmp(s,"sw")) { d=135; break; }
+      if (!strcmp(s,"nw")) { d=225; break; }
+      if (!strcmp(s,"ne")) { d=315; break; }
+
+      if (isAlpha) s[1]=0;
+
+      if (!strcmp(s,"e"))  { d=0;   break; }
+      if (!strcmp(s,"s"))  { d=90;  break; }
+      if (!strcmp(s,"w"))  { d=180; break; }
+      if (!strcmp(s,"n"))  { d=270; break; }
+
+
+      d=atof(s);
+      break;
+    }
+
+    if (d==0) {
+      while (true) {
+        if (!strcmp(s,"0"))    break;
+        if (!strcmp(s,"0.0"))  break;
+        if (!strcmp(s,"e"))    break;
+        if (!strcmp(s,"east")) break;
+        throw (runtime_error("bad data"));    
+      }
+    }
+
+    if (d>=-360 && d<0) {
+      d+=360;
+    }
+    if (d>=0 && d<360) {
+      rotorDegree=d;   
+      g_print("Move to %s\n", s);
+      updateTextBox(true);
+      return;
+    }
+    throw (runtime_error("unknown error"));
+  } catch (runtime_error &e) {
+    logger.error("invalid degree entered in text box %s; caused by %s", raw, e.what());
+  } catch (...) {
+    logger.error("invalid degree entered in text box %s", raw);
+  }
+  updateTextBox(true);
+
 }
 
 static void moveCounterClockwise(GtkWidget *widget, gpointer data) {
@@ -116,13 +194,7 @@ static void drawCompass(bool newSurface) {
   cairo_close_path (cr);
   cairo_stroke(cr);
   
-
-  
-  /* Now invalidate the affected region of the drawing area. */
   cairo_destroy(cr);
-  // gtk_widget_queue_draw_area(drawingArea, 0, 0, width-1, height-1);
-  // gtk_widget_queue_draw(drawingArea);
-  // gtk_widget_show(drawingArea);
   displayLock.unlock();
 
 }
@@ -194,8 +266,9 @@ void renderCompass() {
   }
   auto lastDegree=-1;
   while (true) {
-    if (lastDegree!=rotorDegree) {
-      lastDegree=rotorDegree;
+    int currDegree=rotorDegree+0.5;
+    if (lastDegree!=currDegree) {
+      lastDegree=currDegree;
       try {
         gtk_widget_queue_draw(drawingArea);
         gtk_widget_show(drawingArea);
@@ -206,6 +279,7 @@ void renderCompass() {
       }
       usleep(60*1000);
       logger.info("degree=%d",lastDegree);
+      updateTextBox(true);
     }
   }
 }
