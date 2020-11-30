@@ -36,6 +36,27 @@ void updateTextBox(float degree, bool forceRedraw) {
   updateTextLock.unlock();
 }
 
+static void moveRotor(float degrees) {
+  auto newDegree=rotorDegree+degrees;
+  if (newDegree<0) {
+    newDegree+=360;
+  }
+  if (newDegree>=360) {
+    newDegree-=360;
+  }
+
+  if (newDegree==rotorDegree) {
+    return;
+  }
+  rotorDegree=newDegree;
+  if (degrees>0) {
+    logger.info("Move to %.1f; <<moving counter-clockwise>>",newDegree);
+  } else {
+    logger.info("Move to %.1f; <<moving counter-clockwise>>",newDegree);
+  }
+}
+
+
 static void moveExact(GtkWidget *widget, gpointer data) {
   auto raw = gtk_entry_get_text(GTK_ENTRY(degreeInputBox));
 
@@ -94,7 +115,7 @@ static void moveExact(GtkWidget *widget, gpointer data) {
       d+=360;
     }
     if (d>=0 && d<360) {
-      rotorDegree=d;   
+      moveRotor(d-rotorDegree);
       logger.info("Move to %.1f", d);
       updateTextBox(d, false);
       return;
@@ -110,22 +131,6 @@ static void moveExact(GtkWidget *widget, gpointer data) {
 }
 
 
-static void moveRotor(int degrees) {
-  auto newDegree=rotorDegree+degrees;
-  if (newDegree<0) {
-    newDegree+=360;
-  }
-  if (newDegree>=360) {
-    newDegree-=360;
-  }
-
-  rotorDegree=newDegree;
-  if (degrees>0) {
-    logger.info("Move to %.1f; <<moving counter-clockwise>>",newDegree);
-  } else {
-    logger.info("Move to %.1f; <<moving counter-clockwise>>",newDegree);
-  }
-}
 
 
 static void moveOneCounterClockwise(GtkWidget *widget, gpointer data) {
