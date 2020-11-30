@@ -62,7 +62,7 @@
             <property name="visible">True</property>
             <property name="can_focus">False</property>
             <child>
-              <object class="GtkEntry">
+              <object class="GtkEntry" id="DegreeInputBox">
                 <property name="name">DegreeInput</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>

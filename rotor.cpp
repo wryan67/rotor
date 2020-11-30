@@ -2,10 +2,16 @@
 #include <log4pi.h>
 #include <math.h>
 #include <thread>
-#include <mutex>
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 
 using namespace std;
 using namespace common::utility;
+using namespace common::synchronized;
 
 Logger logger("main");
 GtkWidget *drawingArea;
@@ -13,24 +19,39 @@ GtkWidget *drawingArea;
 float rotorDegree=0;
 mutex displayLock;
 
+GtkWidget *degreeInputBox;
+
 static cairo_surface_t *surface = NULL;
-static void drawCompass();
+static void drawCompass(bool newSurface);
 
 
-static void moveExact (GtkWidget *widget, gpointer data) {
-  g_print ("Move to\n");
+static void moveExact(GtkWidget *widget, gpointer data) {
+  g_print("Move to\n");
 }
 
-static void moveLeft (GtkWidget *widget, gpointer data) {
-  g_print ("Move Left\n");
+static void moveCounterClockwise(GtkWidget *widget, gpointer data) {
+  auto newDegree=rotorDegree-1;
+  if (newDegree<0) {
+    newDegree+=360;
+  }
+  rotorDegree=newDegree;
+  g_print("Move counter clockwise\n");
 }
 
-static void moveRight (GtkWidget *widget, gpointer data) {
-  g_print ("Move Right\n");
+static void moveClockwise(GtkWidget *widget, gpointer data) {
+  auto newDegree=rotorDegree+1;
+  if (newDegree>359) {
+    newDegree-=360;
+  }
+  rotorDegree=newDegree;
+  g_print("Move clockwise\n");
 }
 
-static void drawCompass() {
-  displayLock.lock();
+static void drawCompass(bool newSurface) {
+  if (!newSurface) {
+    displayLock.lock();
+  }
+    
   cairo_t *cr;
   guint width, height;
   // GdkRGBA color;
@@ -94,18 +115,21 @@ static void drawCompass() {
   cairo_line_to(cr, x+xPoint,  y+yPoint);
   cairo_close_path (cr);
   cairo_stroke(cr);
-
+  
 
   
   /* Now invalidate the affected region of the drawing area. */
-  // gtk_widget_queue_draw_area(drawingArea, x - 10, y - 10, 20, 6);
-  gtk_widget_queue_draw(drawingArea);
-  gtk_widget_show(drawingArea);
   cairo_destroy(cr);
+  // gtk_widget_queue_draw_area(drawingArea, 0, 0, width-1, height-1);
+  // gtk_widget_queue_draw(drawingArea);
+  // gtk_widget_show(drawingArea);
   displayLock.unlock();
+
 }
 
 void createDrawingSurface(GtkWidget *widget) {
+  displayLock.lock();
+
   if (surface) {
     cairo_surface_destroy (surface);
   }
@@ -134,8 +158,7 @@ void createDrawingSurface(GtkWidget *widget) {
 
   surface = gdk_window_create_similar_surface(window, CAIRO_CONTENT_COLOR, width, height);
 
-  drawCompass();
-
+  drawCompass(true);
 }
 
 
@@ -152,11 +175,12 @@ configure_event_cb (GtkWidget         *widget,
   return TRUE;
 }
 
-static gboolean
-draw_cb (GtkWidget *widget,
-         cairo_t   *cr,
-         gpointer   data)
+static gboolean draw_cb(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
+  displayLock.lock();
+  drawCompass(true);
+  displayLock.unlock();
+
   cairo_set_source_surface (cr, surface, 0, 0);
   cairo_paint_with_alpha (cr, 1);
 
@@ -165,8 +189,6 @@ draw_cb (GtkWidget *widget,
 
 
 void renderCompass() {
-  logger.tag(10,"render compass");
-
   while (drawingArea==nullptr) {
     usleep(50*1000);
   }
@@ -174,8 +196,16 @@ void renderCompass() {
   while (true) {
     if (lastDegree!=rotorDegree) {
       lastDegree=rotorDegree;
-      drawCompass();
+      try {
+        gtk_widget_queue_draw(drawingArea);
+        gtk_widget_show(drawingArea);
+      } catch (std::exception &e) {
+        logger.warn("%s",e.what());
+      } catch (...) {
+        logger.warn("unhandled exception in renderCompass");
+      }
       usleep(60*1000);
+      logger.info("degree=%d",lastDegree);
     }
   }
 }
@@ -204,22 +234,21 @@ int main(int argc, char **argv) {
   g_signal_connect (button, "clicked", G_CALLBACK (moveExact), NULL);
 
   button = gtk_builder_get_object (builder, "MoveLeftButton");
-  g_signal_connect (button, "clicked", G_CALLBACK (moveLeft), NULL);
+  g_signal_connect (button, "clicked", G_CALLBACK (moveCounterClockwise), NULL);
 
   button = gtk_builder_get_object (builder, "MoveRightButton");
-  g_signal_connect (button, "clicked", G_CALLBACK (moveRight), NULL);
+  g_signal_connect (button, "clicked", G_CALLBACK (moveClockwise), NULL);
 
   button = gtk_builder_get_object (builder, "quit");
   g_signal_connect (button, "clicked", G_CALLBACK (gtk_main_quit), NULL);
 
+  degreeInputBox = (GtkWidget *) gtk_builder_get_object (builder, "DegreeInputBox");
+
   drawingArea = (GtkWidget *) gtk_builder_get_object (builder, "CompassDrawingArea");
  
   createDrawingSurface(drawingArea);
-
   g_signal_connect (drawingArea,"configure-event", G_CALLBACK (configure_event_cb), NULL);
   g_signal_connect (drawingArea, "draw", G_CALLBACK (draw_cb), NULL);
-
-  logger.tag(1,"here");
 
   thread compass(renderCompass);
 
@@ -228,3 +257,5 @@ int main(int argc, char **argv) {
 
   return 0;
 }
+#pragma clang diagnostic pop
+#pragma GCC diagnostic pop
