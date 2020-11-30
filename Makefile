@@ -1,0 +1,2 @@
+rotor: rotor.cpp
+	./com
