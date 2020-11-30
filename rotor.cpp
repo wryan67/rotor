@@ -25,17 +25,22 @@ GtkWidget *degreeInputBox;
 static cairo_surface_t *surface = NULL;
 static void drawCompass(bool newSurface);
 
-void updateTextBox(float degree, bool forceRedraw) {
-  char tmpstr[32];
-  sprintf(tmpstr,"%.1f", degree);
+char degreeTextBox[32];
 
-  if (forceRedraw) {
-    updateTextLock.lock();
-    gtk_entry_set_text(GTK_ENTRY(degreeInputBox),tmpstr);
-    gtk_widget_queue_draw(degreeInputBox);
-    gtk_widget_show(degreeInputBox);
-    updateTextLock.unlock();
-  }
+void updateTextBox(float degree, bool forceRedraw) {
+  updateTextLock.lock();
+  
+  sprintf(degreeTextBox,"%.1f", degree);
+  gtk_entry_set_text(GTK_ENTRY(degreeInputBox),degreeTextBox);
+  
+  updateTextLock.unlock();
+
+  // if (forceRedraw) {
+  //   updateTextLock.lock();
+  //   gtk_widget_queue_draw(degreeInputBox);
+  //   gtk_widget_show(degreeInputBox);
+  //   updateTextLock.unlock();
+  // }
 }
 
 static void moveExact(GtkWidget *widget, gpointer data) {
@@ -97,7 +102,7 @@ static void moveExact(GtkWidget *widget, gpointer data) {
     }
     if (d>=0 && d<360) {
       rotorDegree=d;   
-      logger.info("Move to %s", s);
+      logger.info("Move to %.1f", d);
       updateTextBox(d, false);
       return;
     }
@@ -117,7 +122,7 @@ static void moveCounterClockwise(GtkWidget *widget, gpointer data) {
     newDegree+=360;
   }
   rotorDegree=newDegree;
-  logger.info("Move to %f; <<moving counter-clockwise>>",newDegree);
+  logger.info("Move to %.1f; <<moving counter-clockwise>>",newDegree);
 }
 
 static void moveClockwise(GtkWidget *widget, gpointer data) {
@@ -126,7 +131,7 @@ static void moveClockwise(GtkWidget *widget, gpointer data) {
     newDegree-=360;
   }
   rotorDegree=newDegree;
-  logger.info("Move to %f; <<moving clockwise>>",newDegree);
+  logger.info("Move to %.1f; <<moving clockwise>>",newDegree);
 }
 
 static void drawCompass(bool newSurface) {
@@ -284,7 +289,7 @@ void renderCompass() {
         logger.warn("unhandled exception in renderCompass");
       }
       usleep(60*1000);
-      updateTextBox(currDegree, true);
+      updateTextBox(currDegree, false);
     }
   }
 }
