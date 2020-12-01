@@ -322,7 +322,20 @@ int main(int argc, char **argv) {
   GObject *button;
   GError *error = NULL;
 
+
+
+
   gtk_init (&argc, &argv);
+
+
+  GtkCssProvider *cssProvider = gtk_css_provider_new();
+  gtk_css_provider_load_from_path(cssProvider, "theme.css", NULL);
+
+  gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
+                               GTK_STYLE_PROVIDER(cssProvider),
+                               GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+
 
   /* Construct a GtkBuilder instance and load our UI description */
   builder = gtk_builder_new ();
@@ -364,6 +377,8 @@ int main(int argc, char **argv) {
   g_signal_connect (drawingArea, "draw", G_CALLBACK (draw_cb), NULL);
 
   thread compass(renderCompass);
+
+
 
 
   gtk_main();
