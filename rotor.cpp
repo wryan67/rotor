@@ -323,7 +323,7 @@ int main(int argc, char **argv) {
   GError *error = NULL;
 
 
-
+  
 
   gtk_init (&argc, &argv);
 
@@ -378,6 +378,11 @@ int main(int argc, char **argv) {
 
   thread compass(renderCompass);
 
+  logger.info("argc=%d", argc);
+
+  if (argc>1 && !strcmp(argv[1],"-f")) {
+    gtk_window_fullscreen(GTK_WINDOW(window));
+  }
 
 
 
