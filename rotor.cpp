@@ -25,8 +25,17 @@ GtkWidget *degreeInputBox;
 
 static cairo_surface_t *surface = NULL;
 static void drawCompass(bool newSurface);
+static void createDrawingSurface(GtkWidget *widget);
 
 char degreeTextBox[32];
+bool ignoreMargins=false;
+
+
+struct directionalType {
+  int east, se, south, sw, west, nw, north, ne;
+} directional = {
+  0, 45, 90, 135, 180, 225, 270, 315
+};
 
 void updateTextBox(float degree, bool forceRedraw) {
   updateTextLock.lock();
@@ -85,17 +94,17 @@ static void moveExact(GtkWidget *widget, gpointer data) {
 
     while (true) {
 
-      if (!strcmp(s,"se")) { d=45;  break; }
-      if (!strcmp(s,"sw")) { d=135; break; }
-      if (!strcmp(s,"nw")) { d=225; break; }
-      if (!strcmp(s,"ne")) { d=315; break; }
+      if (!strcmp(s,"nw")) { d=directional.nw; break; }
+      if (!strcmp(s,"ne")) { d=directional.ne; break; }
+      if (!strcmp(s,"se")) { d=directional.se; break; }
+      if (!strcmp(s,"sw")) { d=directional.sw; break; }
 
       if (isAlpha) s[1]=0;
 
-      if (!strcmp(s,"e"))  { d=0;   break; }
-      if (!strcmp(s,"s"))  { d=90;  break; }
-      if (!strcmp(s,"w"))  { d=180; break; }
-      if (!strcmp(s,"n"))  { d=270; break; }
+      if (!strcmp(s,"n"))  { d=directional.north; break; }
+      if (!strcmp(s,"e"))  { d=directional.east;  break; }
+      if (!strcmp(s,"s"))  { d=directional.south; break; }
+      if (!strcmp(s,"w"))  { d=directional.west;  break; }
 
 
       d=atof(s);
@@ -147,6 +156,22 @@ static void moveTenClockwise(GtkWidget *widget, gpointer data) {
   moveRotor(10);
 }
 
+static void redraw(GtkWidget *widget, gpointer data) {
+      gtk_widget_set_margin_top(widget, 0);
+  gtk_widget_set_margin_left(widget,  0);
+
+    createDrawingSurface(drawingArea);
+
+}
+
+static void moveTo(GtkWidget *widget, gpointer data) {
+  int *direction = (int*)data;
+  logger.info("directon=%d", *direction);
+
+  moveRotor(*direction-rotorDegree);
+
+}
+
 static void drawCompass(bool newSurface) {
   if (!newSurface) {
     displayLock.lock();
@@ -158,8 +183,18 @@ static void drawCompass(bool newSurface) {
   // GtkStyleContext *context;
   // context = gtk_widget_get_style_context (drawingArea);
 
-  width = gtk_widget_get_allocated_width(drawingArea) - gtk_widget_get_margin_left(drawingArea);
-  height = gtk_widget_get_allocated_height (drawingArea) - gtk_widget_get_margin_top(drawingArea);
+  int windowWidth  = gtk_widget_get_allocated_width(drawingArea);
+  int windowHeight = gtk_widget_get_allocated_height (drawingArea);
+
+  int marginLeft = gtk_widget_get_margin_left(drawingArea);
+  int marginTop  = gtk_widget_get_margin_top(drawingArea);
+
+  width = windowWidth - marginLeft;
+  height = windowHeight - marginTop;
+
+  // logger.info("drawCompas::window <%d,%d>", windowWidth, windowHeight);
+  // logger.info("drawCompas::margin <%d,%d>", marginLeft, marginTop);
+
 
   gdouble x=width/2.0-1;
   gdouble y=height/2.0-1;
@@ -229,14 +264,17 @@ static void drawCompass(bool newSurface) {
 
 }
 
-void createDrawingSurface(GtkWidget *widget) {
+static void createDrawingSurface(GtkWidget *widget) {
   displayLock.lock();
 
   if (surface) {
     cairo_surface_destroy (surface);
   }
-  auto mTop  = gtk_widget_get_margin_top(widget);
-  auto mLeft = gtk_widget_get_margin_left(widget);
+  auto windowWidth  = gtk_widget_get_allocated_width(widget);
+  auto windowHeight = gtk_widget_get_allocated_height(widget);
+
+  auto mTop  = (ignoreMargins)?0:gtk_widget_get_margin_top(widget);
+  auto mLeft = (ignoreMargins)?0:gtk_widget_get_margin_left(widget);
   auto width  = gtk_widget_get_allocated_width(widget)+mLeft;
   auto height = gtk_widget_get_allocated_height(widget)+mTop;
   auto window = gtk_widget_get_window(widget);
@@ -245,23 +283,28 @@ void createDrawingSurface(GtkWidget *widget) {
   gtk_widget_set_margin_left(widget,  0);
 
 
+  logger.info("cds::window <%d,%d>", windowWidth, windowHeight);
+  logger.info("cds::margins<%d,%d>", mTop, mLeft);
+  
   if (width>height) {
-    int margin;
-    margin=(width-height)/2.0+0.5;
-
-    logger.info("width=%d(%d) height=%d(%d) margin=%d",width,mLeft,height,mTop,margin);
+    int margin = (width-height)/2.0+0.5;
     width=height;
-    gtk_widget_set_margin_left(widget, margin);
+    if (!ignoreMargins) gtk_widget_set_margin_left(widget, margin);
   } else if (height>width) {
     int margin = (height-width)/2.0+0.5;
     height=width;
-    gtk_widget_set_margin_top(widget, margin);
+    if (!ignoreMargins) gtk_widget_set_margin_top(widget, margin);
   }
+
 
 //  CAIRO_CONTENT_COLOR
   surface = gdk_window_create_similar_surface(window, CAIRO_CONTENT_COLOR_ALPHA, width, height);
 
+
   drawCompass(true);
+
+  ignoreMargins=false;
+
 }
 
 
@@ -316,14 +359,38 @@ void renderCompass() {
   }
 }
 
+gboolean manualScreenRedraw(GtkWidget *widget, GdkEventWindowState *event, gpointer user_data) {
+
+    logger.info("manual screen redraw");
+
+
+    if(event->new_window_state & GDK_WINDOW_STATE_MAXIMIZED) {
+        logger.info("window maximized");
+        ignoreMargins=false;
+    }
+
+    return TRUE;
+}
+
+void setButton(GtkBuilder *builder, const char*buttonId, char *action, GCallback callBack, void *dataPointer)
+{
+  GObject *button = gtk_builder_get_object (builder, buttonId);
+  g_signal_connect (button, action, callBack, dataPointer);
+}
+
+void setButton(GtkBuilder *builder, const char*buttonId, char *action, GCallback callBack)
+{
+  GObject *button = gtk_builder_get_object (builder, buttonId);
+  g_signal_connect (button, action, callBack, NULL);
+}
+
+
 int main(int argc, char **argv) {
   GtkBuilder *builder;
   GObject *window;
   GObject *button;
   GError *error = NULL;
 
-
-  
 
   gtk_init (&argc, &argv);
 
@@ -364,9 +431,23 @@ int main(int argc, char **argv) {
   button = gtk_builder_get_object (builder, "FastForward");
   g_signal_connect (button, "clicked", G_CALLBACK (moveTenClockwise), NULL);
 
+  button = gtk_builder_get_object (builder, "Redraw");
+  g_signal_connect (button, "clicked", G_CALLBACK (redraw), NULL);
 
   button = gtk_builder_get_object (builder, "quit");
   g_signal_connect (button, "clicked", G_CALLBACK (gtk_main_quit), NULL);
+
+  setButton(builder, "northButton", "clicked", G_CALLBACK(moveTo), &directional.north);
+  setButton(builder, "southButton", "clicked", G_CALLBACK(moveTo), &directional.south);
+  setButton(builder, "eastButton", "clicked", G_CALLBACK(moveTo),  &directional.east);
+  setButton(builder, "westButton", "clicked", G_CALLBACK(moveTo),  &directional.west);
+
+  setButton(builder, "seButton", "clicked", G_CALLBACK(moveTo), &directional.se);
+  setButton(builder, "swButton", "clicked", G_CALLBACK(moveTo), &directional.sw);
+  setButton(builder, "nwButton", "clicked", G_CALLBACK(moveTo),  &directional.nw);
+  setButton(builder, "neButton", "clicked", G_CALLBACK(moveTo),  &directional.ne);
+
+
 
   degreeInputBox = (GtkWidget *) gtk_builder_get_object (builder, "DegreeInputBox");
 
@@ -378,13 +459,13 @@ int main(int argc, char **argv) {
 
   thread compass(renderCompass);
 
+  g_signal_connect( G_OBJECT(window), "window-state-event", G_CALLBACK(manualScreenRedraw), NULL);
+
   logger.info("argc=%d", argc);
 
   if (argc>1 && !strcmp(argv[1],"-f")) {
     gtk_window_fullscreen(GTK_WINDOW(window));
   }
-
-
 
   gtk_main();
 
