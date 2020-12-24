@@ -1,7 +1,14 @@
+
 #include <gtk/gtk.h>
 #include <log4pi.h>
 #include <math.h>
 #include <thread>
+
+#include <wiringPi.h>
+#include <mcp3004.h>
+
+#define BASE 200
+#define SPI_CHAN 0
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -372,7 +379,7 @@ gboolean manualScreenRedraw(GtkWidget *widget, GdkEventWindowState *event, gpoin
     return TRUE;
 }
 
-void setButton(GtkBuilder *builder, const char*buttonId, char *action, GCallback callBack, void *dataPointer)
+void setButton(GtkBuilder *builder, const char*buttonId, const char *action, GCallback callBack, void *dataPointer)
 {
   GObject *button = gtk_builder_get_object (builder, buttonId);
   g_signal_connect (button, action, callBack, dataPointer);
@@ -384,12 +391,25 @@ void setButton(GtkBuilder *builder, const char*buttonId, char *action, GCallback
   g_signal_connect (button, action, callBack, NULL);
 }
 
+void voltageCatcher(int channel) {
+  // mcp3004Setup (BASE, SPI_CHAN) ; // 3004 and 3008 are the same 4/8 channels
+
+  while (true) {
+    // int value = analogRead(200+channel);
+
+    logger.info("ch[0]=%d",25);
+    delay(1000);
+  }
+
+}
 
 int main(int argc, char **argv) {
   GtkBuilder *builder;
   GObject *window;
   GObject *button;
   GError *error = NULL;
+
+  wiringPiSetup();
 
 
   gtk_init (&argc, &argv);
@@ -466,6 +486,8 @@ int main(int argc, char **argv) {
   if (argc>1 && !strcmp(argv[1],"-f")) {
     gtk_window_fullscreen(GTK_WINDOW(window));
   }
+
+  // thread(voltageCatcher,0);
 
   gtk_main();
 
