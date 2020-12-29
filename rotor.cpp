@@ -5,10 +5,21 @@
 #include <thread>
 
 #include <wiringPi.h>
-#include <mcp3004.h>
+#include <wiringPiSPI.h>
 
 #define BASE 200
 #define SPI_CHAN 0
+#define MCP3008_SINGLE  8
+#define MCP3008_DIFF    0
+
+int spiSpeed    = 1000000;
+
+static volatile int  spiHandle = -1;
+static volatile bool sampelingActive = false;
+static volatile int  spiChannel = 0;
+static volatile int  channelType= MCP3008_SINGLE;
+static volatile double refVolts = 3.3;
+
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -43,6 +54,25 @@ struct directionalType {
 } directional = {
   0, 45, 90, 135, 180, 225, 270, 315
 };
+
+void loadSpiDriver()
+{
+	if (system("gpio load spi") == -1)
+	{
+		fprintf(stderr, "Can't load the SPI driver: %s\n", strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+}
+
+void spiSetup()
+{
+	if ((spiHandle = wiringPiSPISetup(spiChannel, spiSpeed)) < 0)
+	{
+		fprintf(stderr, "opening SPI bus failed: %s\n", strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+}
+
 
 void updateTextBox(float degree, bool forceRedraw) {
   updateTextLock.lock();
@@ -391,13 +421,39 @@ void setButton(GtkBuilder *builder, const char*buttonId, char *action, GCallback
   g_signal_connect (button, action, callBack, NULL);
 }
 
+unsigned int readChannel(int channel)
+{
+	if (0 > channel || channel > 7) {
+		return -1;
+	}
+
+	unsigned char buffer[3] = { 1 }; 
+	buffer[1] = (channelType + channel) << 4;
+
+	wiringPiSPIDataRW(spiChannel, buffer, 3);
+
+	return ((buffer[1] & 3) << 8) + buffer[2]; 
+}
+
+
+
 void voltageCatcher(int channel) {
+  logger.tag(100,"init voltage catcher");
+
   // mcp3004Setup (BASE, SPI_CHAN) ; // 3004 and 3008 are the same 4/8 channels
 
-  while (true) {
-    // int value = analogRead(200+channel);
+  logger.tag(110,"voltageCatcher::starting loop");
 
-    logger.info("ch[0]=%d",25);
+  int lastValue=-1;
+  while (true) {
+
+    int bits = readChannel(channel);
+    if (lastValue != bits) {
+      double volts = (bits*refVolts) / 1024.0;
+      rotorDegree = 360 * (volts/(1.1));
+      logger.info("ch[0]=%5.3f rotorDegree=%3.0f",volts, rotorDegree);
+      lastValue = bits;
+    }
     delay(1000);
   }
 
@@ -409,8 +465,20 @@ int main(int argc, char **argv) {
   GObject *button;
   GError *error = NULL;
 
-  wiringPiSetup();
+	int loadSpi = false;
+	int selectedChannel = 1;
 
+	if (loadSpi == true) {
+		loadSpiDriver();
+	}
+	
+	
+	if (wiringPiSetup() != 0) {
+		fprintf(stderr, "wiringPi setup failed\n");
+		exit(1);
+	}
+
+	spiSetup();
 
   gtk_init (&argc, &argv);
 
@@ -487,7 +555,7 @@ int main(int argc, char **argv) {
     gtk_window_fullscreen(GTK_WINDOW(window));
   }
 
-  // thread(voltageCatcher,0);
+  thread(voltageCatcher,0).detach();
 
   gtk_main();
 
