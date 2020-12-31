@@ -122,11 +122,12 @@ static void moveRotorWorker(float degrees, float newDegree) {
 }
 
 static void moveRotor(float degrees) {
+    float currentDegree=rotorDegree;
     if (!isRotorMoving.commit(false,true)) {
         logger.error("rotor is already moving...");
         return;
     }
-    auto newDegree=rotorDegree+degrees;
+    auto newDegree=currentDegree+degrees;
     if (newDegree<0) {
         newDegree+=360;
     }
@@ -134,12 +135,14 @@ static void moveRotor(float degrees) {
         newDegree-=360;
     }
 
-    if (newDegree==rotorDegree) {
+    if (abs(newDegree-currentDegree)<1.5) {
+        logger.info("current degree=%.1f; requested degree=%.1f", currentDegree, newDegree);
+        logger.info("movement degree is too small.  doing nothing");
+        isRotorMoving.set(false);
         return;
     }
 
     thread(moveRotorWorker,degrees,newDegree).detach();
-
 }
 
 
@@ -220,10 +223,10 @@ static void moveExact(GtkWidget *widget, gpointer data) {
 
 
 static void moveOneCounterClockwise(GtkWidget *widget, gpointer data) {
-  moveRotor(-1);
+  moveRotor(-1*wobbleLimit);
 }
 static void moveOneClockwise(GtkWidget *widget, gpointer data) {
-  moveRotor(1);
+  moveRotor(wobbleLimit);
 }
 static void moveTenCounterClockwise(GtkWidget *widget, gpointer data) {
   moveRotor(-10);
@@ -499,14 +502,20 @@ void voltageCatcher(int channel) {
         delay(250);
     }
 }
-
+void initRotorDegrees() {
+    delay(1500);
+    forceCompassRedraw=true;
+}
 int main(int argc, char **argv) {
-  GtkBuilder *builder;
-  GObject *window;
-  GObject *button;
-  GError *error = NULL;
+    GtkBuilder *builder;
+    GObject *window;
+    GObject *button;
+    GError *error = NULL;
 
-
+    logger.setGlobalLevel(INFO);
+    if (argc>1 && strcmp(argv[1],"-d")==0) {
+        logger.setGlobalLevel(ALL);
+    }
 	
     if (initRotorEngine()!=0) {
         logger.error("rotor engine initializaion failed");
@@ -520,89 +529,79 @@ int main(int argc, char **argv) {
 
 	spiSetup(loadSpi);
 
+    gtk_init (&argc, &argv);
+
+    GtkCssProvider *cssProvider = gtk_css_provider_new();
+    gtk_css_provider_load_from_path(cssProvider, "theme.css", NULL);
+
+    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
+                                GTK_STYLE_PROVIDER(cssProvider),
+                                GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+    /* Construct a GtkBuilder instance and load our UI description */
+    builder = gtk_builder_new ();
+    if (gtk_builder_add_from_file (builder, "layout.ui", &error) == 0) {
+        g_printerr ("Error loading file: %s\n", error->message);
+        g_clear_error (&error);
+        return 1;
+    }
+
+    /* Connect signal handlers to the constructed widgets. */
+    window = gtk_builder_get_object (builder, "window");
+    g_signal_connect (window, "destroy", G_CALLBACK (gtk_main_quit), NULL);
+
+    button = gtk_builder_get_object (builder, "MoveExactButton");
+    g_signal_connect (button, "clicked", G_CALLBACK (moveExact), NULL);
+
+    button = gtk_builder_get_object (builder, "MoveLeftButton");
+    g_signal_connect (button, "clicked", G_CALLBACK (moveOneCounterClockwise), NULL);
+
+    button = gtk_builder_get_object (builder, "MoveRightButton");
+    g_signal_connect (button, "clicked", G_CALLBACK (moveOneClockwise), NULL);
+
+    button = gtk_builder_get_object (builder, "FastReverse");
+    g_signal_connect (button, "clicked", G_CALLBACK (moveTenCounterClockwise), NULL);
+
+    button = gtk_builder_get_object (builder, "FastForward");
+    g_signal_connect (button, "clicked", G_CALLBACK (moveTenClockwise), NULL);
+
+    button = gtk_builder_get_object (builder, "Redraw");
+    g_signal_connect (button, "clicked", G_CALLBACK (redraw), NULL);
+
+    button = gtk_builder_get_object (builder, "quit");
+    g_signal_connect (button, "clicked", G_CALLBACK (gtk_main_quit), NULL);
+
+    setButton(builder, "northButton", "clicked", G_CALLBACK(moveTo), &directional.north);
+    setButton(builder, "southButton", "clicked", G_CALLBACK(moveTo), &directional.south);
+    setButton(builder, "eastButton", "clicked", G_CALLBACK(moveTo),  &directional.east);
+    setButton(builder, "westButton", "clicked", G_CALLBACK(moveTo),  &directional.west);
+
+    setButton(builder, "seButton", "clicked", G_CALLBACK(moveTo), &directional.se);
+    setButton(builder, "swButton", "clicked", G_CALLBACK(moveTo), &directional.sw);
+    setButton(builder, "nwButton", "clicked", G_CALLBACK(moveTo),  &directional.nw);
+    setButton(builder, "neButton", "clicked", G_CALLBACK(moveTo),  &directional.ne);
+
+    degreeInputBox = (GtkWidget *) gtk_builder_get_object (builder, "DegreeInputBox");
+    drawingArea = (GtkWidget *) gtk_builder_get_object (builder, "CompassDrawingArea");
     
+    createDrawingSurface(drawingArea);
+    g_signal_connect (drawingArea,"configure-event", G_CALLBACK (configure_event_cb), NULL);
+    g_signal_connect (drawingArea, "draw", G_CALLBACK (draw_cb), NULL);
+    g_signal_connect (G_OBJECT(window), "window-state-event", G_CALLBACK(manualScreenRedraw), NULL);
 
+    logger.info("argc=%d", argc);
 
-  gtk_init (&argc, &argv);
+    if (argc>1 && !strcmp(argv[1],"-f")) {
+        gtk_window_fullscreen(GTK_WINDOW(window));
+    }
 
+    thread(voltageCatcher, voltageChannel).detach();
+    thread(renderCompass).detach();
+    thread(initRotorDegrees).detach();
 
-  GtkCssProvider *cssProvider = gtk_css_provider_new();
-  gtk_css_provider_load_from_path(cssProvider, "theme.css", NULL);
+    gtk_main();
 
-  gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
-                               GTK_STYLE_PROVIDER(cssProvider),
-                               GTK_STYLE_PROVIDER_PRIORITY_USER);
-
-
-
-  /* Construct a GtkBuilder instance and load our UI description */
-  builder = gtk_builder_new ();
-  if (gtk_builder_add_from_file (builder, "layout.ui", &error) == 0) {
-      g_printerr ("Error loading file: %s\n", error->message);
-      g_clear_error (&error);
-      return 1;
-  }
-
-  /* Connect signal handlers to the constructed widgets. */
-  window = gtk_builder_get_object (builder, "window");
-  g_signal_connect (window, "destroy", G_CALLBACK (gtk_main_quit), NULL);
-
-  button = gtk_builder_get_object (builder, "MoveExactButton");
-  g_signal_connect (button, "clicked", G_CALLBACK (moveExact), NULL);
-
-  button = gtk_builder_get_object (builder, "MoveLeftButton");
-  g_signal_connect (button, "clicked", G_CALLBACK (moveOneCounterClockwise), NULL);
-
-  button = gtk_builder_get_object (builder, "MoveRightButton");
-  g_signal_connect (button, "clicked", G_CALLBACK (moveOneClockwise), NULL);
-
-  button = gtk_builder_get_object (builder, "FastReverse");
-  g_signal_connect (button, "clicked", G_CALLBACK (moveTenCounterClockwise), NULL);
-
-  button = gtk_builder_get_object (builder, "FastForward");
-  g_signal_connect (button, "clicked", G_CALLBACK (moveTenClockwise), NULL);
-
-  button = gtk_builder_get_object (builder, "Redraw");
-  g_signal_connect (button, "clicked", G_CALLBACK (redraw), NULL);
-
-  button = gtk_builder_get_object (builder, "quit");
-  g_signal_connect (button, "clicked", G_CALLBACK (gtk_main_quit), NULL);
-
-  setButton(builder, "northButton", "clicked", G_CALLBACK(moveTo), &directional.north);
-  setButton(builder, "southButton", "clicked", G_CALLBACK(moveTo), &directional.south);
-  setButton(builder, "eastButton", "clicked", G_CALLBACK(moveTo),  &directional.east);
-  setButton(builder, "westButton", "clicked", G_CALLBACK(moveTo),  &directional.west);
-
-  setButton(builder, "seButton", "clicked", G_CALLBACK(moveTo), &directional.se);
-  setButton(builder, "swButton", "clicked", G_CALLBACK(moveTo), &directional.sw);
-  setButton(builder, "nwButton", "clicked", G_CALLBACK(moveTo),  &directional.nw);
-  setButton(builder, "neButton", "clicked", G_CALLBACK(moveTo),  &directional.ne);
-
-
-
-  degreeInputBox = (GtkWidget *) gtk_builder_get_object (builder, "DegreeInputBox");
-
-  drawingArea = (GtkWidget *) gtk_builder_get_object (builder, "CompassDrawingArea");
- 
-  createDrawingSurface(drawingArea);
-  g_signal_connect (drawingArea,"configure-event", G_CALLBACK (configure_event_cb), NULL);
-  g_signal_connect (drawingArea, "draw", G_CALLBACK (draw_cb), NULL);
-
-
-  g_signal_connect( G_OBJECT(window), "window-state-event", G_CALLBACK(manualScreenRedraw), NULL);
-
-  logger.info("argc=%d", argc);
-
-  if (argc>1 && !strcmp(argv[1],"-f")) {
-    gtk_window_fullscreen(GTK_WINDOW(window));
-  }
-
-  thread(voltageCatcher, voltageChannel).detach();
-  thread(renderCompass).detach();
-
-  gtk_main();
-
-  return 0;
+    return 0;
 }
 #pragma clang diagnostic pop
 #pragma GCC diagnostic pop
