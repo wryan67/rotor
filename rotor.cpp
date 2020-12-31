@@ -3,6 +3,7 @@
 #include <log4pi.h>
 #include <math.h>
 #include <thread>
+#include <atomic>
 
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
@@ -14,13 +15,13 @@
 
 int spiSpeed    = 1000000;
 
-int voltageChannel=0;
-static volatile int  spiHandle = -1;
-static volatile bool sampelingActive = false;
-static volatile int  spiChannel = 0;
-static volatile int  channelType= MCP3008_SINGLE;
-static volatile double refVolts = 3.3;
-
+int    voltageChannel=0;
+int    spiHandle = -1;
+bool   sampelingActive = false;
+int    spiChannel = 0;
+int    channelType= MCP3008_SINGLE;
+float  refVolts = 3.3;
+float  maxVolts = 1.1;
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -35,8 +36,10 @@ using namespace common::synchronized;
 Logger     logger("main");
 GtkWidget *drawingArea=nullptr;
 
-float actualRotorDegree=999;
 float rotorDegree=0;
+float wobbleLimit=3;
+
+atomic<bool> forceCompassRedraw=false;
 
 mutex displayLock;
 mutex updateTextLock;
@@ -103,8 +106,9 @@ static void moveRotor(float degrees) {
   if (newDegree==rotorDegree) {
     return;
   }
-  rotorDegree=newDegree;
+
   if (degrees>0) {
+    
     logger.info("Move to %.1f; <<moving counter-clockwise>>",newDegree);
   } else {
     logger.info("Move to %.1f; <<moving counter-clockwise>>",newDegree);
@@ -392,7 +396,8 @@ void renderCompass() {
   while (true) {
     auto currDegree=rotorDegree;
     auto delta=abs(currDegree - lastDegree);
-    if (delta>0.5) {
+    if (delta>wobbleLimit || forceCompassRedraw) {
+      forceCompassRedraw=false;  
       lastDegree=currDegree;
       try {
         displayLock.lock();
@@ -458,8 +463,7 @@ void voltageCatcher(int channel) {
         int bits = readChannel(channel);
         if (lastValue != bits) {
           double volts = (bits*refVolts) / 1024.0;
-          rotorDegree = 360 * (volts/(1.1));
-          logger.info("ch[0]=%5.3f rotorDegree=%3.0f",volts, rotorDegree);
+          rotorDegree = 360.0 * (volts/(maxVolts));
           lastValue = bits;
         }
         delay(1000);
