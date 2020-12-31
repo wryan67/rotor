@@ -9,6 +9,10 @@
 #include <log4pi.h>
 #include "engine.h"
 
+using namespace std;
+using namespace common::utility;
+using namespace common::synchronized;
+
 #define BASE 200
 #define SPI_CHAN 0
 #define MCP3008_SINGLE  8
@@ -25,15 +29,14 @@ int    channelType= MCP3008_SINGLE;
 float  refVolts = 3.3;
 float  maxVolts = 1.1;
 
+SynchronizedBool isRotorMoving{false};
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 
-using namespace std;
-using namespace common::utility;
-using namespace common::synchronized;
 
 Logger     logger("main");
 GtkWidget *drawingArea=nullptr;
@@ -115,9 +118,14 @@ static void moveRotorWorker(float degrees, float newDegree) {
     logger.info("stop motor");
     deactivateRotor();
     forceCompassRedraw=true;
+    isRotorMoving.set(false);
 }
 
 static void moveRotor(float degrees) {
+    if (!isRotorMoving.commit(false,true)) {
+        logger.error("rotor is already moving...");
+        return;
+    }
     auto newDegree=rotorDegree+degrees;
     if (newDegree<0) {
         newDegree+=360;
