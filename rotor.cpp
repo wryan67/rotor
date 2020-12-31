@@ -14,6 +14,7 @@
 
 int spiSpeed    = 1000000;
 
+int voltageChannel=0;
 static volatile int  spiHandle = -1;
 static volatile bool sampelingActive = false;
 static volatile int  spiChannel = 0;
@@ -31,11 +32,12 @@ using namespace std;
 using namespace common::utility;
 using namespace common::synchronized;
 
-Logger logger("main");
-GtkWidget *drawingArea;
+Logger     logger("main");
+GtkWidget *drawingArea=nullptr;
 
 float actualRotorDegree=999;
 float rotorDegree=0;
+
 mutex displayLock;
 mutex updateTextLock;
 
@@ -73,14 +75,20 @@ void spiSetup()
 	}
 }
 
+int textBoxWidgetUpdate(gpointer data) {
+    gtk_entry_set_text(GTK_ENTRY(degreeInputBox),degreeTextBox);
+    updateTextLock.unlock();
+    return 0;
+}
+
 
 void updateTextBox(float degree, bool forceRedraw) {
-  updateTextLock.lock();
-  
-  sprintf(degreeTextBox,"%.1f", degree);
-  gtk_entry_set_text(GTK_ENTRY(degreeInputBox),degreeTextBox);
-  
-  updateTextLock.unlock();
+    updateTextLock.lock();
+
+    sprintf(degreeTextBox,"%.1f", degree);
+
+    g_idle_add(textBoxWidgetUpdate, nullptr);
+
 }
 
 static void moveRotor(float degrees) {
@@ -210,9 +218,9 @@ static void moveTo(GtkWidget *widget, gpointer data) {
 }
 
 static void drawCompass(bool newSurface) {
-  if (!newSurface) {
-    displayLock.lock();
-  }
+//   if (!newSurface) {
+//     displayLock.lock();
+//   }
     
   cairo_t *cr;
   guint width, height;
@@ -297,12 +305,12 @@ static void drawCompass(bool newSurface) {
   cairo_stroke(cr);
   
   cairo_destroy(cr);
-  displayLock.unlock();
+//   displayLock.unlock();
 
 }
 
 static void createDrawingSurface(GtkWidget *widget) {
-  displayLock.lock();
+//   displayLock.lock();
 
   if (surface) {
     cairo_surface_destroy (surface);
@@ -360,9 +368,9 @@ configure_event_cb (GtkWidget         *widget,
 
 static gboolean draw_cb(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
-  displayLock.lock();
+//   displayLock.lock();
   drawCompass(true);
-  displayLock.unlock();
+//   displayLock.unlock();
 
   cairo_set_source_surface (cr, surface, 0, 0);
   cairo_paint_with_alpha (cr, 1);
@@ -370,27 +378,31 @@ static gboolean draw_cb(GtkWidget *widget, cairo_t *cr, gpointer data)
   return FALSE;
 }
 
+int compassWidgetUpdate(gpointer data) {
+    gtk_widget_queue_draw(drawingArea);
+    gtk_widget_show(drawingArea);
+    displayLock.unlock();
+    return 0;
+}
 
 void renderCompass() {
-  while (drawingArea==nullptr) {
-    usleep(50*1000);
-  }
+  usleep(3*1000);
+
   float lastDegree=999;
   while (true) {
     auto currDegree=rotorDegree;
-    auto min=currDegree-0.5;
-    auto max=currDegree+0.5;
-    if (lastDegree<min || lastDegree>max) {
+    auto delta=abs(currDegree - lastDegree);
+    if (delta>0.5) {
       lastDegree=currDegree;
       try {
-        gtk_widget_queue_draw(drawingArea);
-        gtk_widget_show(drawingArea);
+        displayLock.lock();
+        g_idle_add(compassWidgetUpdate, nullptr);
       } catch (std::exception &e) {
         logger.warn("%s",e.what());
       } catch (...) {
         logger.warn("unhandled exception in renderCompass");
       }
-      usleep(60*1000);
+      usleep(200*1000);
       updateTextBox(currDegree, false);
     }
   }
@@ -438,25 +450,20 @@ unsigned int readChannel(int channel)
 
 
 void voltageCatcher(int channel) {
-  logger.tag(100,"init voltage catcher");
+    logger.tag(100,"init voltage catcher; channel=%d");
+  
+    int lastValue=-1;
+    while (true) {
 
-  // mcp3004Setup (BASE, SPI_CHAN) ; // 3004 and 3008 are the same 4/8 channels
-
-  logger.tag(110,"voltageCatcher::starting loop");
-
-  int lastValue=-1;
-  while (true) {
-
-    int bits = readChannel(channel);
-    if (lastValue != bits) {
-      double volts = (bits*refVolts) / 1024.0;
-      rotorDegree = 360 * (volts/(1.1));
-      logger.info("ch[0]=%5.3f rotorDegree=%3.0f",volts, rotorDegree);
-      lastValue = bits;
+        int bits = readChannel(channel);
+        if (lastValue != bits) {
+          double volts = (bits*refVolts) / 1024.0;
+          rotorDegree = 360 * (volts/(1.1));
+          logger.info("ch[0]=%5.3f rotorDegree=%3.0f",volts, rotorDegree);
+          lastValue = bits;
+        }
+        delay(1000);
     }
-    delay(1000);
-  }
-
 }
 
 int main(int argc, char **argv) {
@@ -479,6 +486,8 @@ int main(int argc, char **argv) {
 	}
 
 	spiSetup();
+
+
 
   gtk_init (&argc, &argv);
 
@@ -545,7 +554,6 @@ int main(int argc, char **argv) {
   g_signal_connect (drawingArea,"configure-event", G_CALLBACK (configure_event_cb), NULL);
   g_signal_connect (drawingArea, "draw", G_CALLBACK (draw_cb), NULL);
 
-  thread compass(renderCompass);
 
   g_signal_connect( G_OBJECT(window), "window-state-event", G_CALLBACK(manualScreenRedraw), NULL);
 
@@ -555,7 +563,8 @@ int main(int argc, char **argv) {
     gtk_window_fullscreen(GTK_WINDOW(window));
   }
 
-  thread(voltageCatcher,0).detach();
+  thread(voltageCatcher, voltageChannel).detach();
+  thread(renderCompass).detach();
 
   gtk_main();
 
