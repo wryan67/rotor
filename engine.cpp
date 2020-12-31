@@ -1,5 +1,4 @@
 #include <wiringPi.h>
-#include <pca9685.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,68 +8,47 @@
 #include <unistd.h>
 #include <log4pi.h>
 
+#include "engine.h"
+
 using namespace std;
 using namespace common::utility;
 using namespace common::synchronized;
 
-
-static int pca9685fd = -1;
-
-static int PCA9865_CAP      = 1400;
-static int PCA9865_RES      = 4046;
-static int PCA9865_ADDRESS  = 0x40;
-static int pwmPin           = 8;
-static int pwmFreq          = -1;
-
-#define PCA9685_PIN_BASE 200
+enum RotorPin {
+    BrakePin=28,
+    ClockwisePin=27,
+    CCWPin=29
+};
 
 static bool debug = false;
 
 static Logger logger{"RotorEngine"};
 
-int  initRotorEngine() {
-	if (int ret = wiringPiSetup()) {
-		logger.error("Wiring Pi setup failed, ret=%d", ret);
-		return 9;
-	}
+int initRotorEngine() {
+    pinMode(BrakePin,     OUTPUT);
+    pinMode(ClockwisePin, OUTPUT);
+    pinMode(CCWPin,       OUTPUT);
 
-    if ((pca9685fd=pca9685Setup(PCA9685_PIN_BASE, PCA9865_ADDRESS, PCA9865_CAP)) <= 0) {
-		logger.error("open pca9685 handle failed!");
-		return 9;
-	}
-
+    deactivateRotor();
     return 0;
 }
 
-void setFrequency(int pin, int speed) {
-	if (speed < 1) {
-		speed = 0;
-	} else if (speed >= 4096) {
-		speed = 4096;
-	}
-	pwmWrite(PCA9685_PIN_BASE + pin, speed);
-	if (debug) {
-		printf("finished\n", pin, speed); fflush(stdout);
-	}
-}
 
 void deactivateRotor() {
-    setFrequency(pwmPin, 0);
+    digitalWrite(ClockwisePin, LOW);
+    digitalWrite(CCWPin, LOW);
+    delay(5000);
+    digitalWrite(BrakePin, LOW);
 }
 
 void activateRotor(float direction) {
-    setFrequency(pwmPin, 0);
-    // if (direction==0) {
-    //     return;
-    // }
+    
+    if (direction=0) {
+        return;
+    }
+    RotorPin motorPin=(direction>0)?ClockwisePin:CCWPin;
 
-    // int f;
-    // if (direction>0) {
-    //     f=2500;
-    // } else {
-    //     f=3800;
-    // }
-
-    // setFrequency(pwmPin, f);
-    // logger.info("freq=%d",f);
+    digitalWrite(BrakePin, HIGH);
+    delay(10);
+    digitalWrite(motorPin, HIGH);
 }

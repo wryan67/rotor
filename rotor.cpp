@@ -502,10 +502,12 @@ void voltageCatcher(int channel) {
         usleep(20*1000);
     }
 }
+
 void initRotorDegrees() {
     usleep(1500*1000);
     forceCompassRedraw=true;
 }
+
 int main(int argc, char **argv) {
     GtkBuilder *builder;
     GObject *window;
