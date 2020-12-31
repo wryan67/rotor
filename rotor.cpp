@@ -1,12 +1,12 @@
 
 #include <gtk/gtk.h>
-#include <log4pi.h>
 #include <math.h>
 #include <thread>
-#include <atomic>
 
 #include <wiringPi.h>
 #include <wiringPiSPI.h>
+
+#include <log4pi.h>
 
 #define BASE 200
 #define SPI_CHAN 0
@@ -39,7 +39,7 @@ GtkWidget *drawingArea=nullptr;
 float rotorDegree=0;
 float wobbleLimit=3;
 
-atomic<bool> forceCompassRedraw=false;
+bool forceCompassRedraw=false;
 
 mutex displayLock;
 mutex updateTextLock;
