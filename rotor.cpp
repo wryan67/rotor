@@ -107,11 +107,10 @@ static void moveRotor(float degrees) {
     return;
   }
 
-  if (degrees>0) {
-    
-    logger.info("Move to %.1f; <<moving counter-clockwise>>",newDegree);
+  if (degrees>0) {    
+    logger.info("Moving %.0f degress to %.1f; <<moving clockwise>>", degrees, newDegree);
   } else {
-    logger.info("Move to %.1f; <<moving counter-clockwise>>",newDegree);
+    logger.info("Moving %.0f degrees to %.1f; <<moving counter-clockwise>>", degrees, newDegree);
   }
 }
 
@@ -332,8 +331,6 @@ static void createDrawingSurface(GtkWidget *widget) {
   gtk_widget_set_margin_left(widget,  0);
 
 
-  logger.info("cds::window <%d,%d>", windowWidth, windowHeight);
-  logger.info("cds::margins<%d,%d>", mTop, mLeft);
   
   if (width>height) {
     int margin = (width-height)/2.0+0.5;
