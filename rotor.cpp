@@ -26,8 +26,11 @@ int    spiHandle = -1;
 bool   sampelingActive = false;
 int    spiChannel = 0;
 int    channelType= MCP3008_SINGLE;
-float  refVolts = 3.3;
-float  maxVolts = 1.1;
+float  mcp3008RefVolts = 3.3;
+
+float  rotorVs     = 5.0;
+float  rotorVout   = (rotorVs*500) / (1000+500);
+
 
 SynchronizedBool isRotorMoving{false};
 
@@ -491,8 +494,8 @@ void voltageCatcher(int channel) {
         
         int bits = readChannel(channel);
         if (lastValue != bits) {
-          double volts = (bits*refVolts) / 1024.0;
-          rotorDegree = 360.0 * (volts/(maxVolts));
+          double volts = (bits*mcp3008RefVolts) / 1024.0;
+          rotorDegree = 360.0 * (volts/(rotorVout));
           if (abs(rotorDegree-lastDegree)>wobbleLimit) {
             logger.info("rotorDegree=%.1f",rotorDegree);
             lastDegree=rotorDegree;
