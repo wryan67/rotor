@@ -422,6 +422,7 @@ void renderCompass() {
 
   float lastDegree=999;
   while (true) {
+    usleep(50*1000);
     auto currDegree=rotorDegree;
     auto delta=abs(currDegree - lastDegree);
     if (delta>wobbleLimit || forceCompassRedraw) {
@@ -435,7 +436,6 @@ void renderCompass() {
       } catch (...) {
         logger.warn("unhandled exception in renderCompass");
       }
-      usleep(200*1000);
       updateTextBox(currDegree, false);
     }
   }
@@ -499,11 +499,11 @@ void voltageCatcher(int channel) {
           }
           lastValue = bits;
         }
-        delay(250);
+        usleep(20*1000);
     }
 }
 void initRotorDegrees() {
-    delay(1500);
+    usleep(1500*1000);
     forceCompassRedraw=true;
 }
 int main(int argc, char **argv) {
@@ -517,15 +517,16 @@ int main(int argc, char **argv) {
         logger.setGlobalLevel(ALL);
     }
 	
-    if (initRotorEngine()!=0) {
-        logger.error("rotor engine initializaion failed");
-		exit(1);
-    }
-	
 	if (wiringPiSetup() != 0) {
 		logger.error("wiringPi setup failed");
 		exit(2);
 	}
+
+	
+    if (initRotorEngine()!=0) {
+        logger.error("rotor engine initializaion failed");
+		exit(1);
+    }
 
 	spiSetup(loadSpi);
 
