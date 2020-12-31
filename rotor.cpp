@@ -7,13 +7,15 @@
 #include <wiringPiSPI.h>
 
 #include <log4pi.h>
+#include "engine.h"
 
 #define BASE 200
 #define SPI_CHAN 0
 #define MCP3008_SINGLE  8
 #define MCP3008_DIFF    0
 
-int spiSpeed    = 1000000;
+int loadSpi   = false;
+int spiSpeed  = 1000000;
 
 int    voltageChannel=0;
 int    spiHandle = -1;
@@ -69,8 +71,11 @@ void loadSpiDriver()
 	}
 }
 
-void spiSetup()
-{
+void spiSetup(bool loadSpi) {
+    if (loadSpi == true) {
+		loadSpiDriver();
+	}
+
 	if ((spiHandle = wiringPiSPISetup(spiChannel, spiSpeed)) < 0)
 	{
 		fprintf(stderr, "opening SPI bus failed: %s\n", strerror(errno));
@@ -94,24 +99,39 @@ void updateTextBox(float degree, bool forceRedraw) {
 
 }
 
+static void moveRotorWorker(float degrees, float newDegree) {
+    logger.info("Moving %.0f degress to %.1f", degrees, newDegree);
+    activateRotor(degrees);
+
+    if (degrees>0) {
+        while (rotorDegree<newDegree) {
+            usleep(250);
+        }
+    } else {
+        while (rotorDegree>newDegree) {
+            usleep(250);
+        }
+    }
+    logger.info("stop motor");
+    deactivateRotor();
+    forceCompassRedraw=true;
+}
+
 static void moveRotor(float degrees) {
-  auto newDegree=rotorDegree+degrees;
-  if (newDegree<0) {
-    newDegree+=360;
-  }
-  if (newDegree>=360) {
-    newDegree-=360;
-  }
+    auto newDegree=rotorDegree+degrees;
+    if (newDegree<0) {
+        newDegree+=360;
+    }
+    if (newDegree>=360) {
+        newDegree-=360;
+    }
 
-  if (newDegree==rotorDegree) {
-    return;
-  }
+    if (newDegree==rotorDegree) {
+        return;
+    }
 
-  if (degrees>0) {    
-    logger.info("Moving %.0f degress to %.1f; <<moving clockwise>>", degrees, newDegree);
-  } else {
-    logger.info("Moving %.0f degrees to %.1f; <<moving counter-clockwise>>", degrees, newDegree);
-  }
+    thread(moveRotorWorker,degrees,newDegree).detach();
+
 }
 
 
@@ -174,7 +194,7 @@ static void moveExact(GtkWidget *widget, gpointer data) {
     }
     if (d>=0 && d<360) {
       moveRotor(d-rotorDegree);
-      logger.info("Move to %.1f", d);
+      logger.debug("Move to %.1f", d);
       updateTextBox(d, false);
       return;
     }
@@ -454,16 +474,21 @@ unsigned int readChannel(int channel)
 void voltageCatcher(int channel) {
     logger.tag(100,"init voltage catcher; channel=%d");
   
+    float lastDegree=999;
     int lastValue=-1;
     while (true) {
-
+        
         int bits = readChannel(channel);
         if (lastValue != bits) {
           double volts = (bits*refVolts) / 1024.0;
           rotorDegree = 360.0 * (volts/(maxVolts));
+          if (abs(rotorDegree-lastDegree)>wobbleLimit) {
+            logger.info("rotorDegree=%.1f",rotorDegree);
+            lastDegree=rotorDegree;
+          }
           lastValue = bits;
         }
-        delay(1000);
+        delay(250);
     }
 }
 
@@ -473,21 +498,21 @@ int main(int argc, char **argv) {
   GObject *button;
   GError *error = NULL;
 
-	int loadSpi = false;
-	int selectedChannel = 1;
 
-	if (loadSpi == true) {
-		loadSpiDriver();
-	}
 	
+    if (initRotorEngine()!=0) {
+        logger.error("rotor engine initializaion failed");
+		exit(1);
+    }
 	
 	if (wiringPiSetup() != 0) {
-		fprintf(stderr, "wiringPi setup failed\n");
-		exit(1);
+		logger.error("wiringPi setup failed");
+		exit(2);
 	}
 
-	spiSetup();
+	spiSetup(loadSpi);
 
+    
 
 
   gtk_init (&argc, &argv);

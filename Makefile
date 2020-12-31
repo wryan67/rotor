@@ -1,2 +1,2 @@
-rotor: rotor.cpp
+rotor: rotor.cpp engine.cpp
 	./com

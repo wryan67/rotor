@@ -1,7 +1,7 @@
 #!/bin/ksh
 
-LIBS="-lwiringPi -lwiringPiDev"
-g++ `pkg-config --cflags gtk+-3.0` -o rotor rotor.cpp `pkg-config --libs gtk+-3.0` -luuid -llog4pi $LIBS
+LIBS="-lwiringPi -lwiringPiDev -lwiringPiPca9685 -luuid -llog4pi"
+g++ `pkg-config --cflags gtk+-3.0` -o rotor engine.cpp rotor.cpp `pkg-config --libs gtk+-3.0` $LIBS
 RET=$?
 
 exit $RET
