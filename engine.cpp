@@ -10,13 +10,16 @@
 
 #include "engine.h"
 
+#define RELAY_DEACTIVATED 1
+#define RELAY_ACTIVATED   0
+
 using namespace std;
 using namespace common::utility;
 using namespace common::synchronized;
 
 enum RotorPin {
-    BrakePin=28,
     ClockwisePin=27,
+    BrakePin=28,
     CCWPin=29
 };
 
@@ -35,10 +38,10 @@ int initRotorEngine() {
 
 
 void deactivateRotor() {
-    digitalWrite(ClockwisePin, LOW);
-    digitalWrite(CCWPin, LOW);
+    digitalWrite(ClockwisePin,  RELAY_DEACTIVATED);
+    digitalWrite(CCWPin,        RELAY_DEACTIVATED);
     delay(5000);
-    digitalWrite(BrakePin, LOW);
+    digitalWrite(BrakePin,      RELAY_DEACTIVATED);
 }
 
 void activateRotor(float direction) {
@@ -48,7 +51,7 @@ void activateRotor(float direction) {
     }
     RotorPin motorPin=(direction>0)?ClockwisePin:CCWPin;
 
-    digitalWrite(BrakePin, HIGH);
+    digitalWrite(BrakePin, RELAY_ACTIVATED);
     delay(10);
-    digitalWrite(motorPin, HIGH);
+    digitalWrite(motorPin, RELAY_ACTIVATED);
 }
