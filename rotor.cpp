@@ -63,10 +63,27 @@ bool ignoreMargins=false;
 
 
 struct directionalType {
-  int east, se, south, sw, west, nw, north, ne;
+  int east,  se, south,   sw, west,  nw, north, ne;
 } directional = {
-  0, 45, 90, 135, 180, 225, 270, 315
+        90, 135,   180,  225,  270, 315,     0, 45
 };
+
+float translateRotor2Display(float degrees) {
+    float workingDegrees=degrees+180;
+    if (workingDegrees>360) {
+        workingDegrees-=360;
+    }    
+    return workingDegrees;
+}
+
+float translateDisplay2Rotor(float degrees) {
+    float workingDegrees=degrees-180;
+    if (workingDegrees<0) {
+        workingDegrees+=360;
+    }    
+    return workingDegrees;
+}
+
 
 void loadSpiDriver()
 {
@@ -99,6 +116,7 @@ int textBoxWidgetUpdate(gpointer data) {
 void updateTextBox(float degree, bool forceRedraw) {
     updateTextLock.lock();
 
+
     sprintf(degreeTextBox,"%.1f", degree);
 
     g_idle_add(textBoxWidgetUpdate, nullptr);
@@ -118,8 +136,10 @@ static void moveRotorWorker(float degrees, float newDegree) {
             usleep(250);
         }
     }
-    logger.info("stop motor");
+    logger.info("stopping rotor");
     deactivateRotor();
+    logger.info("rotor parked");
+
     forceCompassRedraw=true;
     isRotorMoving.set(false);
 }
@@ -207,7 +227,7 @@ static void moveExact(GtkWidget *widget, gpointer data) {
       d+=360;
     }
     if (d>=0 && d<360) {
-      moveRotor(d-rotorDegree);
+      moveRotor(translateDisplay2Rotor(d)-rotorDegree);
       logger.debug("Move to %.1f", d);
       updateTextBox(d, false);
       return;
@@ -218,7 +238,7 @@ static void moveExact(GtkWidget *widget, gpointer data) {
   } catch (...) {
     logger.error("invalid degree entered in text box %s", raw);
   }
-  updateTextBox(rotorDegree, false);
+  updateTextBox(translateRotor2Display(rotorDegree), false);
 
 }
 
@@ -248,9 +268,10 @@ static void redraw(GtkWidget *widget, gpointer data) {
 
 static void moveTo(GtkWidget *widget, gpointer data) {
   int *direction = (int*)data;
-  logger.info("directon=%d", *direction);
+  float newDirection=translateDisplay2Rotor(*direction);
+  logger.info("directon=%d", newDirection);
 
-  moveRotor(*direction-rotorDegree);
+  moveRotor(newDirection-rotorDegree);
 
 }
 
@@ -282,8 +303,10 @@ static void drawCompass(bool newSurface) {
   gdouble y=height/2.0-1;
 
   int radius = x-2;
-  auto degree=rotorDegree;
-
+  auto degree=rotorDegree+90;
+  if (degree<0) {
+      degree=360-degree;
+  }
 
   /* Paint to the surface, where we store our state */
   cr = cairo_create(surface);
@@ -439,7 +462,7 @@ void renderCompass() {
       } catch (...) {
         logger.warn("unhandled exception in renderCompass");
       }
-      updateTextBox(currDegree, false);
+      updateTextBox(translateRotor2Display(currDegree), false);
     }
   }
 }
@@ -494,13 +517,18 @@ void voltageCatcher(int channel) {
         
         int bits = readChannel(channel);
         if (lastValue != bits) {
-          double volts = (bits*mcp3008RefVolts) / 1024.0;
-          rotorDegree = 360.0 * (volts/(rotorVout));
-          if (abs(rotorDegree-lastDegree)>wobbleLimit) {
-            logger.info("rotorDegree=%.1f",rotorDegree);
-            lastDegree=rotorDegree;
-          }
-          lastValue = bits;
+            double volts = (bits*mcp3008RefVolts) / 1024.0;
+            
+            rotorDegree = 360.0 * (volts/(rotorVout));
+            
+     
+
+            if (abs(rotorDegree-lastDegree)>wobbleLimit) {
+                logger.info("ch[0]=%.3f rotorDegree=%.1f displayDegree=%.1f", 
+                                volts, rotorDegree, translateRotor2Display(rotorDegree));
+                lastDegree=rotorDegree;
+            }
+            lastValue = bits;
         }
         usleep(20*1000);
     }
