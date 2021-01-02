@@ -80,8 +80,6 @@ float translateDisplay2Rotor(float degrees) {
 }
 
 
-
-
 void a2dSetup() {
 
     a2dHandle = wiringPiI2CSetup(ADS1115_ADDRESS);
@@ -125,7 +123,7 @@ static void moveRotorWorker(float degrees, float newDegree) {
     }
     logger.info("stopping rotor");
     deactivateRotor();
-    logger.info("rotor parked");
+    logger.info("rotor parked; rotorDegree=%.1f", rotorDegree);
 
     forceCompassRedraw=true;
     isRotorMoving.set(false);
@@ -494,21 +492,42 @@ void voltageCatcher(int channel) {
     float lastDegree=999;
     float lastValue=-1;
 
+    u_int windowSize=10;
+    bool  limitReached=false;
+    vector<float> slidingVolts;
+
     while (true) {
         
         float volts = readVoltage(a2dHandle, channel, 0);
 
-        if (lastValue != volts) {
-            
-            rotorDegree = 360.0 * (volts/(rotorVout));
+        slidingVolts.push_back(volts);
 
-            if (abs(rotorDegree-lastDegree)>wobbleLimit) {
-                logger.debug("ch[0]=%.3f rotorDegree=%.1f displayDegree=%.1f", 
-                                volts, rotorDegree, translateRotor2Display(rotorDegree));
-                lastDegree=rotorDegree;
+        if (limitReached) {
+            float totalVolts=0;
+
+            slidingVolts.erase(slidingVolts.begin());
+
+            for (auto v:slidingVolts) totalVolts+=v;
+
+            volts=totalVolts/windowSize;
+
+            if (lastValue != volts) {
+                
+                rotorDegree = 360.0 * (volts/(rotorVout));
+
+                if (abs(rotorDegree-lastDegree)>wobbleLimit) {
+                    logger.debug("ch[0]=%.3f rotorDegree=%.1f displayDegree=%.1f", 
+                                    volts, rotorDegree, translateRotor2Display(rotorDegree));
+                    lastDegree=rotorDegree;
+                }
+                lastValue = volts;
             }
-            lastValue = volts;
+        } else {
+            if (slidingVolts.size()>=windowSize) {
+                limitReached=true;
+            }
         }
+
         usleep(20*1000);
     }
 }

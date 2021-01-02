@@ -1,8 +1,9 @@
 #include "Options.h"
 
 void Options::usage() {
-	fprintf(stderr, "usage: vc -s samples\n");
+	fprintf(stderr, "usage: rotor [options]\n");
 	fprintf(stderr, "  Options:\n");
+	fprintf(stderr, "  -h = help\n");
 	fprintf(stderr, "  -d = debug\n");
 	fprintf(stderr, "  -f = full screen\n");
 
@@ -12,15 +13,12 @@ void Options::usage() {
 bool Options::commandLineOptions(int argc, char **argv) {
 	int c, index;
 
-	if (argc < 2) {
-		usage();
-	}
-
-	const char* shortOptions = "df";
+	const char* shortOptions = "dfh";
 
 	static struct option longOptions[] = {
 		{"debug",       optional_argument, NULL, 'd'},
 		{"full screen", optional_argument, NULL, 'f'},
+		{"help",        optional_argument, NULL, 'h'},
         {0, 0, 0, 0}
 	};
 
@@ -33,6 +31,10 @@ bool Options::commandLineOptions(int argc, char **argv) {
 
 		case 'f':
 			fullscreen = true;
+			break;
+
+		case 'h':
+			usage();
 			break;
 
 		case '?':
