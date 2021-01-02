@@ -1,0 +1,12 @@
+#!/bin/ksh
+
+. $HOME/bin/setenv
+
+
+stopMotors
+
+ps -fu `logname` | awk '{if (/rotor/ && !/awk/ && !/tail/) system(sprintf("kill %d", $2))}'
+
+stopMotors
+sleep 5
+engageBrake

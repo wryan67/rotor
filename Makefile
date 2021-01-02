@@ -1,2 +1,3 @@
-rotor: rotor.cpp engine.cpp
-	./com
+
+rotor: src/rotor.cpp src/motor.cpp src/Options.cpp
+	@./com

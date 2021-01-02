@@ -9,8 +9,10 @@
                 "/usr/local/include"
             ],
             "defines": [],
-            "compilerPath": "/usr/bin/gcc",
-            "intelliSenseMode": "gcc-x64"
+            "compilerPath": "/usr/bin/g++",
+            "intelliSenseMode": "gcc-arm",
+            "cppStandard": "gnu++17",
+            "cStandard": "c17"
         }
     ],
     "version": 4

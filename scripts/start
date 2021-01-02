@@ -1,0 +1,14 @@
+#!/bin/ksh
+set -a
+
+$HOME/bin/stop
+
+mkdir -p $HOME/logs
+
+if [ "$DISPLAY" = "" ];then
+  DISPLAY=":0"
+fi
+
+cd $HOME/bin
+
+nohup $HOME/bin/rotor -f $* > $HOME/logs/rotor.log 2>&1 &

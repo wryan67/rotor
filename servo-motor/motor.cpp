@@ -28,7 +28,7 @@ static bool debug = false;
 
 static Logger logger{"RotorEngine"};
 
-int  initRotorEngine() {
+int  initRotorMotor() {
 	if (int ret = wiringPiSetup()) {
 		logger.error("Wiring Pi setup failed, ret=%d", ret);
 		return 9;

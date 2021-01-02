@@ -4,50 +4,45 @@
 #include <thread>
 
 #include <wiringPi.h>
-#include <wiringPiSPI.h>
+#include <wiringPiI2C.h>
+#include <ads1115rpi.h>
 
-#include <log4pi.h>
-#include "engine.h"
+#include "motor.h"
+#include "Options.h"
 
 using namespace std;
 using namespace common::utility;
 using namespace common::synchronized;
+
+Options options = Options();
 
 #define BASE 200
 #define SPI_CHAN 0
 #define MCP3008_SINGLE  8
 #define MCP3008_DIFF    0
 
-int loadSpi   = false;
-int spiSpeed  = 1000000;
+int ADS1115_ADDRESS=0x48;
+int a2dHandle=-1;
 
 int    voltageChannel=0;
-int    spiHandle = -1;
-bool   sampelingActive = false;
-int    spiChannel = 0;
-int    channelType= MCP3008_SINGLE;
-float  mcp3008RefVolts = 3.3;
+float  a2dRefVolts = 3.3;
 
 float  rotorVs     = 5.0;
 float  rotorVout   = (rotorVs*500) / (1000+500);
 
-
 SynchronizedBool isRotorMoving{false};
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+// #pragma clang diagnostic push
+// #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-
-
 
 Logger     logger("main");
 GtkWidget *drawingArea=nullptr;
 
 float rotorDegree=0;
 float wobbleLimit=3;
-
-bool forceCompassRedraw=false;
+bool  forceCompassRedraw=false;
 
 mutex displayLock;
 mutex updateTextLock;
@@ -85,23 +80,15 @@ float translateDisplay2Rotor(float degrees) {
 }
 
 
-void loadSpiDriver()
-{
-	if (system("gpio load spi") == -1)
-	{
-		fprintf(stderr, "Can't load the SPI driver: %s\n", strerror(errno));
-		exit(EXIT_FAILURE);
-	}
-}
 
-void spiSetup(bool loadSpi) {
-    if (loadSpi == true) {
-		loadSpiDriver();
-	}
 
-	if ((spiHandle = wiringPiSPISetup(spiChannel, spiSpeed)) < 0)
+void a2dSetup() {
+
+    a2dHandle = wiringPiI2CSetup(ADS1115_ADDRESS);
+
+	if (a2dHandle<0)
 	{
-		fprintf(stderr, "opening SPI bus failed: %s\n", strerror(errno));
+		fprintf(stderr, "opening ads1115 failed: %s\n", strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 }
@@ -146,6 +133,12 @@ static void moveRotorWorker(float degrees, float newDegree) {
 
 static void moveRotor(float degrees) {
     float currentDegree=rotorDegree;
+
+    if (!isRotorMotorReady()) {
+        logger.error("the rotor motor reports 'not ready'.  Is the external turned power on?");
+        return;
+    }
+
     if (!isRotorMoving.commit(false,true)) {
         logger.error("rotor is already moving...");
         return;
@@ -375,8 +368,8 @@ static void createDrawingSurface(GtkWidget *widget) {
   if (surface) {
     cairo_surface_destroy (surface);
   }
-  auto windowWidth  = gtk_widget_get_allocated_width(widget);
-  auto windowHeight = gtk_widget_get_allocated_height(widget);
+//   auto windowWidth  = gtk_widget_get_allocated_width(widget);
+//   auto windowHeight = gtk_widget_get_allocated_height(widget);
 
   auto mTop  = (ignoreMargins)?0:gtk_widget_get_margin_top(widget);
   auto mLeft = (ignoreMargins)?0:gtk_widget_get_margin_left(widget);
@@ -492,43 +485,29 @@ void setButton(GtkBuilder *builder, const char*buttonId, char *action, GCallback
   g_signal_connect (button, action, callBack, NULL);
 }
 
-unsigned int readChannel(int channel)
-{
-	if (0 > channel || channel > 7) {
-		return -1;
-	}
-
-	unsigned char buffer[3] = { 1 }; 
-	buffer[1] = (channelType + channel) << 4;
-
-	wiringPiSPIDataRW(spiChannel, buffer, 3);
-
-	return ((buffer[1] & 3) << 8) + buffer[2]; 
-}
 
 
 
 void voltageCatcher(int channel) {
-    logger.tag(100,"init voltage catcher; channel=%d");
+    logger.debug("init voltage catcher; channel=%d");
   
     float lastDegree=999;
-    int lastValue=-1;
+    float lastValue=-1;
+
     while (true) {
         
-        int bits = readChannel(channel);
-        if (lastValue != bits) {
-            double volts = (bits*mcp3008RefVolts) / 1024.0;
+        float volts = readVoltage(a2dHandle, channel, 0);
+
+        if (lastValue != volts) {
             
             rotorDegree = 360.0 * (volts/(rotorVout));
-            
-     
 
             if (abs(rotorDegree-lastDegree)>wobbleLimit) {
                 logger.info("ch[0]=%.3f rotorDegree=%.1f displayDegree=%.1f", 
                                 volts, rotorDegree, translateRotor2Display(rotorDegree));
                 lastDegree=rotorDegree;
             }
-            lastValue = bits;
+            lastValue = volts;
         }
         usleep(20*1000);
     }
@@ -539,29 +518,31 @@ void initRotorDegrees() {
     forceCompassRedraw=true;
 }
 
+
 int main(int argc, char **argv) {
     GtkBuilder *builder;
-    GObject *window;
-    GObject *button;
-    GError *error = NULL;
+    GObject    *window;
+    GObject    *button;
+    GError     *error=nullptr;
 
-    logger.setGlobalLevel(INFO);
-    if (argc>1 && strcmp(argv[1],"-d")==0) {
-        logger.setGlobalLevel(ALL);
-    }
-	
+    logger.info("argc=%d",argc);
+
+	if (!options.commandLineOptions(argc, argv)) {
+		exit(1);
+	}
+
 	if (wiringPiSetup() != 0) {
 		logger.error("wiringPi setup failed");
 		exit(2);
 	}
 
 	
-    if (initRotorEngine()!=0) {
-        logger.error("rotor engine initializaion failed");
+    if (initRotorMotor()!=0) {
+        logger.error("rotor motor initializaion failed");
 		exit(1);
     }
 
-	spiSetup(loadSpi);
+	a2dSetup();
 
     gtk_init (&argc, &argv);
 
@@ -625,7 +606,7 @@ int main(int argc, char **argv) {
 
     logger.info("argc=%d", argc);
 
-    if (argc>1 && !strcmp(argv[1],"-f")) {
+    if (options.fullscreen) {
         gtk_window_fullscreen(GTK_WINDOW(window));
     }
 
@@ -637,5 +618,5 @@ int main(int argc, char **argv) {
 
     return 0;
 }
-#pragma clang diagnostic pop
+// #pragma clang diagnostic pop
 #pragma GCC diagnostic pop

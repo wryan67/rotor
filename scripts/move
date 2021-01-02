@@ -1,0 +1,52 @@
+#!/bin/ksh
+
+. $HOME/bin/setenv
+
+
+usage() {
+  echo "usage: move [cw|ccw] [seconds]"
+  echo "note: seconds can be fractional; example: 0.5"
+  exit 2
+}
+
+typeset -l INPUT=$1
+DURATION=$2
+
+
+[ "$INPUT" = "cw" ]  && DIR=$CW
+[ "$INPUT" = "ccw" ] && DIR=$CCW
+
+if [ "$DIR" = "" ];then
+  echo "invalid direction"
+  usage
+fi
+
+if [ "$DURATION" = "" ];then
+  echo "seconds must be specified"
+  usage
+fi
+
+ISPOWER=`gpio read $POWERSENSOR`
+
+if [ "$ISPOWER" != 1 ];then
+  echo "unable to detect external power"
+  exit 2
+fi
+
+echo releasing brake
+releaseBrake
+sleep 0.1
+
+echo starting motor
+gpio write $DIR 0
+
+echo moving antenna...
+sleep $DURATION
+
+echo motor deactivated
+gpio write $DIR 1
+sleep 5
+
+echo engaging brake
+engageBrake
+
