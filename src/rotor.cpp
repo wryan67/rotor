@@ -262,7 +262,7 @@ static void redraw(GtkWidget *widget, gpointer data) {
 static void moveTo(GtkWidget *widget, gpointer data) {
   int *direction = (int*)data;
   float newDirection=translateDisplay2Rotor(*direction);
-  logger.info("directon=%d", newDirection);
+  logger.debug("directon=%d", newDirection);
 
   moveRotor(newDirection-rotorDegree);
 
@@ -462,7 +462,7 @@ void renderCompass() {
 
 gboolean manualScreenRedraw(GtkWidget *widget, GdkEventWindowState *event, gpointer user_data) {
 
-    logger.info("manual screen redraw");
+    logger.debug("manual screen redraw");
 
 
     if(event->new_window_state & GDK_WINDOW_STATE_MAXIMIZED) {
@@ -489,7 +489,7 @@ void setButton(GtkBuilder *builder, const char*buttonId, char *action, GCallback
 
 
 void voltageCatcher(int channel) {
-    logger.debug("init voltage catcher; channel=%d");
+    logger.debug("init voltage catcher; channel=%d", channel);
   
     float lastDegree=999;
     float lastValue=-1;
@@ -503,7 +503,7 @@ void voltageCatcher(int channel) {
             rotorDegree = 360.0 * (volts/(rotorVout));
 
             if (abs(rotorDegree-lastDegree)>wobbleLimit) {
-                logger.info("ch[0]=%.3f rotorDegree=%.1f displayDegree=%.1f", 
+                logger.debug("ch[0]=%.3f rotorDegree=%.1f displayDegree=%.1f", 
                                 volts, rotorDegree, translateRotor2Display(rotorDegree));
                 lastDegree=rotorDegree;
             }
@@ -525,11 +525,10 @@ int main(int argc, char **argv) {
     GObject    *button;
     GError     *error=nullptr;
 
-    logger.info("argc=%d",argc);
-
 	if (!options.commandLineOptions(argc, argv)) {
 		exit(1);
 	}
+
 
 	if (wiringPiSetup() != 0) {
 		logger.error("wiringPi setup failed");
@@ -604,9 +603,9 @@ int main(int argc, char **argv) {
     g_signal_connect (drawingArea, "draw", G_CALLBACK (draw_cb), NULL);
     g_signal_connect (G_OBJECT(window), "window-state-event", G_CALLBACK(manualScreenRedraw), NULL);
 
-    logger.info("argc=%d", argc);
 
     if (options.fullscreen) {
+        logger.info("entering full screen mode");
         gtk_window_fullscreen(GTK_WINDOW(window));
     }
 

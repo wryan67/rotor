@@ -28,9 +28,7 @@ bool Options::commandLineOptions(int argc, char **argv) {
 		switch (c) {
 
 		case 'd':
-            logger.setGlobalLevel(ALL);
-            logger.info("debugging turned on");
-
+            logLevel = ALL;
 			break;
 
 		case 'f':
@@ -55,7 +53,10 @@ bool Options::commandLineOptions(int argc, char **argv) {
 	//	for (int index = optind; index < argc; index++)
 	//		printf("Non-option argument %s\n", argv[index]);
 
-
+    logger.setGlobalLevel(options.logLevel);
+    if (options.logLevel==ALL) {
+        logger.info("debuggin turned on");
+    }
 	return true;
 }
 
