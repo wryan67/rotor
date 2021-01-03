@@ -24,13 +24,10 @@ Options options = Options();
 int ADS1115_ADDRESS=0x48;
 int a2dHandle=-1;
 
-int    voltageChannel=0;
 float  a2dRefVolts = 3.3;
 
 float  rotorVs     = 5.0;
 float  rotorVout   = (rotorVs*500) / (1000+500);
-
-SynchronizedBool isRotorMoving{false};
 
 // #pragma clang diagnostic push
 // #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -110,7 +107,11 @@ void updateTextBox(float degree, bool forceRedraw) {
 
 static void moveRotorWorker(float degrees, float newDegree) {
     logger.info("Moving %.0f degress to %.1f", degrees, newDegree);
-    activateRotor(degrees);
+
+    if (!activateRotor(degrees)) {
+        logger.error("failed to start rotor motor");
+        return;
+    }
 
     if (degrees>0) {
         while (rotorDegree<newDegree) {
@@ -123,10 +124,11 @@ static void moveRotorWorker(float degrees, float newDegree) {
     }
     logger.info("stopping rotor");
     deactivateRotor();
-    logger.info("rotor parked; rotorDegree=%.1f", rotorDegree);
+    float targetDeviation=rotorDegree-newDegree;
+    logger.info("rotor parked; rotorDegree=%.1f; target deviation=%.1f", 
+                    rotorDegree, abs(targetDeviation));
 
     forceCompassRedraw=true;
-    isRotorMoving.set(false);
 }
 
 static void moveRotor(float degrees) {
@@ -137,7 +139,7 @@ static void moveRotor(float degrees) {
         return;
     }
 
-    if (!isRotorMoving.commit(false,true)) {
+    if (isRotorMoving()) {
         logger.error("rotor is already moving...");
         return;
     }
@@ -152,7 +154,6 @@ static void moveRotor(float degrees) {
     if (abs(newDegree-currentDegree)<1.5) {
         logger.info("current degree=%.1f; requested degree=%.1f", currentDegree, newDegree);
         logger.info("movement degree is too small.  doing nothing");
-        isRotorMoving.set(false);
         return;
     }
 
@@ -490,19 +491,47 @@ void voltageCatcher(int channel) {
     logger.debug("init voltage catcher; channel=%d", channel);
   
     float lastDegree=999;
-    float lastValue=-1;
+    float lastWindowValue=-1;
+    float lastValue = -1;
 
-    u_int windowSize=10;
+    u_int windowSize=8;
     bool  limitReached=false;
     vector<float> slidingVolts;
+
+    auto start = currentTimeMillis();
+
+    bool first=true;
+    int skips=0;
 
     while (true) {
         
         float volts = readVoltage(a2dHandle, channel, 0);
 
+        if (lastValue<0) {
+            lastValue=volts;
+            continue;
+        } else {
+            float pDiff = abs((volts-lastValue)/((volts+lastValue)/2));
+            if (pDiff>0.20) {
+                if (skips<4) {
+                    lastValue=volts;
+                    continue;
+                } else {
+                    skips=0;
+                }
+            }
+        }
+
+
         slidingVolts.push_back(volts);
 
         if (limitReached) {
+            if (first) {
+                auto end = currentTimeMillis();
+                first=false;
+                long delta = end - start;
+                logger.info("time to fill window<%d>: %ld", windowSize, delta);
+            } 
             float totalVolts=0;
 
             slidingVolts.erase(slidingVolts.begin());
@@ -511,7 +540,7 @@ void voltageCatcher(int channel) {
 
             volts=totalVolts/windowSize;
 
-            if (lastValue != volts) {
+            if (lastWindowValue != volts) {
                 
                 rotorDegree = 360.0 * (volts/(rotorVout));
 
@@ -520,7 +549,7 @@ void voltageCatcher(int channel) {
                                     volts, rotorDegree, translateRotor2Display(rotorDegree));
                     lastDegree=rotorDegree;
                 }
-                lastValue = volts;
+                lastWindowValue = volts;
             }
         } else {
             if (slidingVolts.size()>=windowSize) {
@@ -627,8 +656,9 @@ int main(int argc, char **argv) {
         logger.info("entering full screen mode");
         gtk_window_fullscreen(GTK_WINDOW(window));
     }
-
-    thread(voltageCatcher, voltageChannel).detach();
+    
+    
+    thread(voltageCatcher, options.vrChannel).detach();
     thread(renderCompass).detach();
     thread(initRotorDegrees).detach();
 

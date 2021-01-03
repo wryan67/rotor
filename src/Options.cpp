@@ -13,9 +13,10 @@ void Options::usage() {
 bool Options::commandLineOptions(int argc, char **argv) {
 	int c, index;
 
-	const char* shortOptions = "dfh";
+	const char* shortOptions = "c:dfh";
 
 	static struct option longOptions[] = {
+		{"channel",     optional_argument, NULL, 'c'},
 		{"debug",       optional_argument, NULL, 'd'},
 		{"full screen", optional_argument, NULL, 'f'},
 		{"help",        optional_argument, NULL, 'h'},
@@ -24,7 +25,9 @@ bool Options::commandLineOptions(int argc, char **argv) {
 
 	while ((c = getopt_long(argc, argv, shortOptions, longOptions, &index)) != -1) {
 		switch (c) {
-
+        case 'c':
+            sscanf(optarg, "%d", &vrChannel);
+            break;
 		case 'd':
             logLevel = ALL;
 			break;

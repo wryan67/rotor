@@ -15,6 +15,7 @@ private:
 public:
     LogLevel logLevel   = INFO;
     bool     fullscreen = false;
+    int      vrChannel=0;
 
     char *sampleFileName;
     FILE *sampleFile;

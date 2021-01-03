@@ -16,7 +16,7 @@
 using namespace std;
 using namespace common::utility;
 using namespace common::synchronized;
-
+    
 enum RotorPin {
     isMotorReadyPin=26,
     ClockwisePin=27,
@@ -25,6 +25,9 @@ enum RotorPin {
 };
 
 static Logger logger{"RotorMotor"};
+
+static int64_t          startTime;
+static SynchronizedBool _isRotorMoving{false};
 
 int initRotorMotor() {
     logger.info("initializing motor");
@@ -47,18 +50,47 @@ bool isRotorMotorReady() {
     return digitalRead(isMotorReadyPin);
 }
 
-void deactivateRotor() {
-    digitalWrite(ClockwisePin,  RELAY_DEACTIVATED);
-    digitalWrite(CCWPin,        RELAY_DEACTIVATED);
-    delay(5000);
-    digitalWrite(BrakePin,      RELAY_DEACTIVATED);
+bool isRotorMoving() {
+    return _isRotorMoving.get();
 }
 
-void activateRotor(float direction) {
-    
+void deactivateRotor() {
+    auto now = currentTimeMillis();
+    long travelTime = now - startTime;
+
+    uint parkingDelay = 5000;
+
+    if (travelTime<1000) {
+        parkingDelay = 1000;
+    }    
+
+    digitalWrite(ClockwisePin,  RELAY_DEACTIVATED);
+    digitalWrite(CCWPin,        RELAY_DEACTIVATED);
+
+    delay(parkingDelay);
+    digitalWrite(BrakePin,      RELAY_DEACTIVATED);
+
+    _isRotorMoving.set(false);
+
+    auto end = currentTimeMillis();
+    auto parkingTime = end - now;
+    logger.info("travel elapsed time: %ld; parking time: %ld", travelTime, parkingTime);
+}
+
+bool activateRotor(float direction) {
+
     if (direction==0) {
-        return;
+        logger.error("requested motor move with direction of zero");
+        return false;
     }
+
+    if (!_isRotorMoving.commit(false,true)) {
+        logger.error("rotor is already moving...");
+        return false;
+    }
+
+    startTime = currentTimeMillis();
+
     const char *vector;
     RotorPin motorPin;
 
@@ -74,4 +106,5 @@ void activateRotor(float direction) {
     digitalWrite(BrakePin, RELAY_ACTIVATED);
     delay(10);
     digitalWrite(motorPin, RELAY_ACTIVATED);
+    return true;
 }
