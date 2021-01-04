@@ -26,8 +26,8 @@ int a2dHandle=-1;
 
 float  a2dRefVolts = 3.3;
 
-float  rotorVs     = 5.0;
-float  rotorVout   = (rotorVs*500) / (1000+500);
+float  rotorVcc     = 5.0;
+float  rotorVout   = (rotorVcc*500) / (1000+500);
 
 // #pragma clang diagnostic push
 // #pragma clang diagnostic ignored "-Wdeprecated-declarations"
