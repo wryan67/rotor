@@ -5,7 +5,7 @@
 BINARY=rotor
 C_FLAGS="-O2 -Wall"
 PKG_LIBS=`pkg-config --libs gtk+-3.0`
-LIBS="-lwiringPi -lwiringPiADS1115rpi -luuid -llog4pi"
+LIBS="-lwiringPi -lwiringPiADS1115rpi -luuid -llog4pi -lNeoPixelRPi"
 SOURCE=`find src -type f -name "*.cpp"`
 PKG_FLAGS=`pkg-config --cflags gtk+-3.0`
 

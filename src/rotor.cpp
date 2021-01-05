@@ -6,6 +6,7 @@
 #include <wiringPi.h>
 #include <wiringPiI2C.h>
 #include <ads1115rpi.h>
+#include <neopixel.h>  
 
 #include "motor.h"
 #include "Options.h"
@@ -24,7 +25,14 @@ Options options = Options();
 int ADS1115_ADDRESS=0x48;
 int a2dHandle=-1;
 
-float  a2dRefVolts = 3.3;
+#define TARGET_FREQ             WS2811_TARGET_FREQ
+#define GPIO_PIN                18   // BCM numbering system
+#define DMA                     10   // DMA=Direct Memory Access
+int led_count =                 1;  // number of pixels in your led strip
+int operationIndicator = 0;
+int stopColor    = 0xff0000;
+int movingColor  = 0x00ff00;
+int brakingColor = 0xffff00;
 
 float  rotorVcc     = 5.0;
 float  rotorVout   = (rotorVcc*500) / (1000+500);
@@ -84,7 +92,7 @@ void a2dSetup() {
 	if (a2dHandle<0)
 	{
 		fprintf(stderr, "opening ads1115 failed: %s\n", strerror(errno));
-		exit(EXIT_FAILURE);
+		exit(3);
 	}
 }
 
@@ -106,12 +114,14 @@ void updateTextBox(float degree, bool forceRedraw) {
 }
 
 static void moveRotorWorker(float degrees, float newDegree) {
-    logger.info("Moving %.0f degress to %.1f", degrees, newDegree);
+    logger.info("` %.0f degress to %.1f", degrees, newDegree);
 
     if (!activateRotor(degrees)) {
         logger.error("failed to start rotor motor");
         return;
     }
+    neopixel_setPixel(operationIndicator, movingColor);
+    neopixel_render();
 
     if (degrees>0) {
         while (rotorDegree<newDegree) {
@@ -123,10 +133,15 @@ static void moveRotorWorker(float degrees, float newDegree) {
         }
     }
     logger.info("stopping rotor");
+    neopixel_setPixel(operationIndicator, brakingColor);
+    neopixel_render();
+
     deactivateRotor();
     float targetDeviation=rotorDegree-newDegree;
     logger.info("rotor parked; rotorDegree=%.1f; target deviation=%.1f", 
                     rotorDegree, abs(targetDeviation));
+    neopixel_setPixel(operationIndicator, stopColor);
+    neopixel_render();
 
     forceCompassRedraw=true;
 }
@@ -586,8 +601,20 @@ int main(int argc, char **argv) {
 	
     if (initRotorMotor()!=0) {
         logger.error("rotor motor initializaion failed");
-		exit(1);
+		exit(4);
     }
+
+    int ledType = WS2811_STRIP_RGB;
+
+    int ret=neopixel_init(ledType, WS2811_TARGET_FREQ, DMA, GPIO_PIN, led_count*2);
+
+    if (ret!=0) {
+        fprintf(stderr, "neopixel initialization failed: %s\n", neopixel_error(ret));
+        exit(5);
+    }
+
+    neopixel_setPixel(operationIndicator, stopColor);
+    neopixel_render();
 
 	a2dSetup();
 
