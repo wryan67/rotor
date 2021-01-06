@@ -17,6 +17,6 @@ Run:
 
     $ ./rotor
     
-Samples:
+Screenshot:
 
 ![screenshot1](https://raw.githubusercontent.com/wryan67/rotor/main/readme/screenshot1.png)
