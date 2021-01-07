@@ -3,3 +3,7 @@
     color: navy;
     font-weight: bold;
 }
+
+.largeButton {
+    min-height: 50px;
+}

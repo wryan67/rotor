@@ -258,7 +258,6 @@
             <child>
               <object class="GtkButton" id="MoveLeftButton">
                 <property name="label" translatable="yes">&lt;</property>
-                <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
               </object>
@@ -271,7 +270,6 @@
             <child>
               <object class="GtkButton" id="MoveRightButton">
                 <property name="label" translatable="yes">&gt;</property>
-                <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
               </object>
@@ -287,6 +285,9 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <style>
+                  <class name="largeButton"/>
+                </style>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -300,6 +301,9 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <style>
+                  <class name="largeButton"/>
+                </style>
               </object>
               <packing>
                 <property name="left_attach">2</property>
