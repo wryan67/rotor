@@ -34,9 +34,6 @@ int stopColor    = 0xff0000;
 int movingColor  = 0x00ff00;
 int brakingColor = 0xffff00;
 
-float  rotorVcc     = 5.0;
-float  rotorVout   = (rotorVcc*500) / (100+500);
-
 // #pragma clang diagnostic push
 // #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #pragma GCC diagnostic push
@@ -502,8 +499,8 @@ void setButton(GtkBuilder *builder, const char*buttonId, char *action, GCallback
 
 
 
-void voltageCatcher(int channel) {
-    logger.debug("init voltage catcher; channel=%d", channel);
+void voltageCatcher() {
+    logger.debug("init voltage catcher; channel=%d", options.aspectVoltageChannel);
   
     float lastDegree=999;
     float lastWindowValue=-1;
@@ -520,7 +517,7 @@ void voltageCatcher(int channel) {
 
     while (true) {
         
-        float volts = readVoltage(a2dHandle, channel, 0);
+        float volts = readVoltage(a2dHandle, options.aspectVoltageChannel, 0);
 
         if (lastValue<0) {
             lastValue=volts;
@@ -556,8 +553,27 @@ void voltageCatcher(int channel) {
             volts=totalVolts/windowSize;
 
             if (lastWindowValue != volts) {
-                
-                rotorDegree = 360.0 * (volts/(rotorVout));
+                float rotorVcc;
+                if (options.useAspectReferenceVoltageChannel) {
+                    rotorVcc = readVoltage(a2dHandle, options.aspectReferenceVoltageChannel, 0);
+                } else {
+                    rotorVcc = options.rotorVcc;
+                }
+                if (rotorVcc<3) {
+                    logger.error("voltage reference is less then 3 volts, should be ~5 volts");
+                    continue;
+                }
+                float  rotorVout = (rotorVcc*options.aspectVariableResistorOhms) / 
+                            (options.aspectFixedResistorOhms+options.aspectVariableResistorOhms);
+
+                rotorDegree = 360.0 * (volts/rotorVout);
+
+                if (abs(rotorDegree)>360) {
+                    rotorDegree=360;
+                }
+                if (rotorDegree<0) {
+                    rotorDegree=0;
+                }
 
                 if (abs(rotorDegree-lastDegree)>wobbleLimit) {
                     logger.debug("ch[0]=%.3f rotorDegree=%.1f displayDegree=%.1f", 
@@ -685,7 +701,7 @@ int main(int argc, char **argv) {
     }
     
     
-    thread(voltageCatcher, options.vrChannel).detach();
+    thread(voltageCatcher).detach();
     thread(renderCompass).detach();
     thread(initRotorDegrees).detach();
 

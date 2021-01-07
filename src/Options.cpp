@@ -6,6 +6,10 @@ void Options::usage() {
 	fprintf(stderr, "  -h = help\n");
 	fprintf(stderr, "  -d = debug\n");
 	fprintf(stderr, "  -f = full screen\n");
+	fprintf(stderr, "  -c = aspect voltage channel (default=0)\n");
+	fprintf(stderr, "  -r = aspect reference voltage channel (default=1)\n");
+	fprintf(stderr, "  -v = aspect variable resistor ohms (default=500)\n");
+	fprintf(stderr, "  -x = aspect fixed resistor ohms (default=100)\n");
 
 	exit(1);
 }
@@ -13,10 +17,14 @@ void Options::usage() {
 bool Options::commandLineOptions(int argc, char **argv) {
 	int c, index;
 
-	const char* shortOptions = "c:dfh";
+	const char* shortOptions = "c:dfhr:v:x:";
 
 	static struct option longOptions[] = {
-		{"channel",     optional_argument, NULL, 'c'},
+		{"aspectVoltageChannel",            required_argument, NULL, 'c'},
+		{"aspectReferenceVoltageChannel",   required_argument, NULL, 'r'},
+		{"aspectVariableResistorOhms",      required_argument, NULL, 'v'},
+		{"aspectFixedResistorOhms",         required_argument, NULL, 'x'},
+
 		{"debug",       optional_argument, NULL, 'd'},
 		{"full screen", optional_argument, NULL, 'f'},
 		{"help",        optional_argument, NULL, 'h'},
@@ -26,8 +34,21 @@ bool Options::commandLineOptions(int argc, char **argv) {
 	while ((c = getopt_long(argc, argv, shortOptions, longOptions, &index)) != -1) {
 		switch (c) {
         case 'c':
-            sscanf(optarg, "%d", &vrChannel);
+            sscanf(optarg, "%d", &aspectVoltageChannel);
             break;
+            
+        case 'r':
+            sscanf(optarg, "%d", &aspectReferenceVoltageChannel);
+            break;
+
+        case 'v':
+            sscanf(optarg, "%d", &aspectVariableResistorOhms);
+            break;
+
+        case 'x':
+            sscanf(optarg, "%d", &aspectFixedResistorOhms);
+            break;
+
 		case 'd':
             logLevel = ALL;
 			break;

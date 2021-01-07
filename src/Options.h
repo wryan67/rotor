@@ -15,11 +15,16 @@ private:
 public:
     LogLevel logLevel   = INFO;
     bool     fullscreen = false;
-    int      vrChannel=0;
+    int      aspectVoltageChannel           = 0;
+    int      aspectReferenceVoltageChannel  = 1;
+    int      aspectVariableResistorOhms     = 500;
+    int      aspectFixedResistorOhms        = 100;
+
+    float    rotorVcc                       = 5.0;
+    bool     useAspectReferenceVoltageChannel=false;
 
     char *sampleFileName;
     FILE *sampleFile;
-
 
 // methods
     void  usage();
