@@ -35,7 +35,7 @@ int movingColor  = 0x00ff00;
 int brakingColor = 0xffff00;
 
 float  rotorVcc     = 5.0;
-float  rotorVout   = (rotorVcc*500) / (1000+500);
+float  rotorVout   = (rotorVcc*500) / (100+500);
 
 // #pragma clang diagnostic push
 // #pragma clang diagnostic ignored "-Wdeprecated-declarations"
