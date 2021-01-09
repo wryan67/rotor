@@ -284,19 +284,32 @@ static void moveExact(GtkWidget *widget, gpointer data) {
 }
 
 
+static void calibrate() {
 
-
-static void calibrate(GtkWidget *widget, gpointer data) {
+    logger.info("calibration started");
     moveRotor(-rotorDegree);
+    delay(250);
+
+    while (isRotorMoving()) {
+        delay(500);
+    }
     delay(1000);
+
     capturePoints=true;    
     moveRotor(180);
+    delay(500);
+
+    while (isRotorMoving()) {
+        delay(250);
+    }
     capturePoints=false;
   
     if (points.size()<100) {
         logger.error("not enough data collected, calibration aborted");
         return;
     }
+
+    logger.info("calculating slope...");
     auto start=points[0]->first;
     auto end=points[points.size()-1]->first;
 
@@ -305,44 +318,56 @@ static void calibrate(GtkWidget *widget, gpointer data) {
     if (elapsed<20000) {
         logger.error("elapsed time is less than 20 seconds, calibration aborted");
     }
+    FILE *slopeFile=fopen("/home/pi/slope.dat","w");
 
-    long count=0;
+    long   count=0;
     double sumX=0;
     double sumY=0;
     for (auto point: points) {
         if (point->first<(start+1000)) continue;
         if (point->first>(end-5000)) continue;
+        auto x=point->first-start;
+        auto y=point->second;
+
+        fprintf(slopeFile,"%lld,%f\n", x, y);
         ++count;
-        sumX+=point->first;
-        sumY+=point->second;
+        sumX+=x;
+        sumY+=y;
     }
 
     double avgX=sumX/count;
     double avgY=sumY/count;
     
-
     double s1=0;
     double s2=0;
     for (auto point: points) {
         if (point->first<(start+1000)) continue;
         if (point->first>(end-5000)) continue;
-        ++count;
-        
-        double c1=point->first - avgX;
-        double c2=point->second -avgY;
+        auto x=point->first-start;
+        auto y=point->second;
+
+        double c1=x - avgX;
+        double c2=y - avgY;
         s1+=c1*c2;
         s2+=c1*c1;
     }
     double slope = s1/s2;
-    
-    FILE *slopeFile=fopen("~/slope.dat","w");
-    fprintf(slopeFile,"%lf", slope);
-    fclose(slopeFile);
 
     for (auto point:points) {
         delete point;
     }
+
     points.clear();
+    logger.info("slope=%lf",slope);
+    logger.info("calibration complete");
+
+    fprintf(slopeFile,"%lf", slope);
+    fclose(slopeFile);
+
+}
+
+static void calibrateActivated(GtkWidget *widget, gpointer data) {
+    thread(calibrate).detach();
 }
 
 
@@ -815,7 +840,7 @@ int main(int argc, char **argv) {
     g_signal_connect (button, "clicked", G_CALLBACK (moveExact), NULL);
 
     button = gtk_builder_get_object (builder, "Calibrate");
-    g_signal_connect (button, "clicked", G_CALLBACK (calibrate), NULL);
+    g_signal_connect (button, "clicked", G_CALLBACK (calibrateActivated), NULL);
 
     button = gtk_builder_get_object (builder, "FastReverse");
     g_signal_connect (button, "clicked", G_CALLBACK (moveTenCounterClockwise), NULL);
