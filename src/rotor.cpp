@@ -30,8 +30,9 @@ int  a2dHandle=-1;
 bool parked=true;
 FILE *logFile=nullptr;
 
-vector<pair<long long, float>*> points;
+vector<pair<uint64_t, float>*> points;
 bool capturePoints=false;
+double slope;
 
 #define TARGET_FREQ             WS2811_TARGET_FREQ
 #define GPIO_PIN                18   // BCM numbering system
@@ -50,6 +51,7 @@ int  brakingColor = 0xffff00;
 Logger     logger("main");
 GtkWidget *drawingArea=nullptr;
 
+float rotorSlope=0;
 float rotorDegree=0;
 float wobbleLimit=3;
 bool  forceCompassRedraw=false;
@@ -283,6 +285,60 @@ static void moveExact(GtkWidget *widget, gpointer data) {
 
 }
 
+static double calculateSlope(bool saveData, bool saveSlope, 
+                            vector<pair<uint64_t, float>*> &points) {
+
+    FILE *slopeFile=nullptr;
+    FILE *dataFile=nullptr;
+    if (saveData) {
+        dataFile=fopen("/home/pi/slope.csv","w");
+    }
+    if (saveSlope) {
+        slopeFile=fopen("/home/pi/slope.dat","w");
+    }
+
+    double sumX=0;
+    double sumY=0;
+    double sumXsq=0;
+    double sumXY=0;
+
+    auto start=points[0]->first;
+
+    for (auto point: points) {
+        auto x=point->first-start;
+        auto y=point->second;
+
+        if (saveData) fprintf(dataFile,"%lld,%.12f\n", x, y);
+
+        auto xSq = x*x;
+        auto xy  = x*y;
+
+        sumX+=x;
+        sumY+=y;
+        sumXsq+=xSq;
+        sumXY+=xy;
+    }
+
+    double s1=sumXY  - (sumX * sumY);
+    double s2=sumXsq - (sumX * sumX);
+    
+    double slope = s1/s2;
+
+    // logger.debug("points: %d",points.size());
+    // logger.debug("sumX=%lf",sumX);
+    // logger.debug("sumY=%lf",sumY);
+    // logger.debug("sumXsq=%lf",sumXsq);
+    // logger.debug("sumXY=%lf",sumXY);
+
+    if (saveData) {
+        fclose(dataFile);
+    }
+    if (saveSlope) {
+        fprintf(slopeFile,"%.12lf", slope);
+        fclose(slopeFile);
+    }
+    return slope;
+}
 
 static void calibrate() {
 
@@ -309,60 +365,39 @@ static void calibrate() {
         return;
     }
 
-    logger.info("calculating slope...");
-    auto start=points[0]->first;
-    auto end=points[points.size()-1]->first;
-
+    auto start   = points[0]->first;
+    auto end     = points[points.size()-1]->first;
     auto elapsed = end - start;
 
     if (elapsed<20000) {
         logger.error("elapsed time is less than 20 seconds, calibration aborted");
+        return;
     }
-    FILE *slopeFile=fopen("/home/pi/slope.dat","w");
 
-    long   count=0;
-    double sumX=0;
-    double sumY=0;
+    vector<pair<uint64_t, float>*> savePoints;
+
     for (auto point: points) {
-        if (point->first<(start+1000)) continue;
-        if (point->first>(end-5000)) continue;
-        auto x=point->first-start;
-        auto y=point->second;
-
-        fprintf(slopeFile,"%lld,%f\n", x, y);
-        ++count;
-        sumX+=x;
-        sumY+=y;
+        auto x=point->first;
+        if (x<(start+1000)) {
+            delete point;
+            continue;
+        }
+        if (x>(end-5000)) {
+            delete point;
+            continue;
+        }
+        savePoints.push_back(point);
     }
 
-    double avgX=sumX/count;
-    double avgY=sumY/count;
-    
-    double s1=0;
-    double s2=0;
-    for (auto point: points) {
-        if (point->first<(start+1000)) continue;
-        if (point->first>(end-5000)) continue;
-        auto x=point->first-start;
-        auto y=point->second;
+    logger.info("calculating slope... pionts=%d",savePoints.size());
 
-        double c1=x - avgX;
-        double c2=y - avgY;
-        s1+=c1*c2;
-        s2+=c1*c1;
-    }
-    double slope = s1/s2;
-
-    for (auto point:points) {
-        delete point;
-    }
-
-    points.clear();
-    logger.info("slope=%lf",slope);
+    auto slope=calculateSlope(true, true, savePoints);
+    logger.info("slope=%.12lf",slope);
     logger.info("calibration complete");
 
-    fprintf(slopeFile,"%lf", slope);
-    fclose(slopeFile);
+    for (auto point:savePoints) {
+        delete point;
+    }   points.clear();
 
 }
 
@@ -613,9 +648,6 @@ void setButton(GtkBuilder *builder, const char*buttonId, char *action, GCallback
   g_signal_connect (button, action, callBack, NULL);
 }
 
-void voltageProcess(float volts) {
-    
-}
 
 
 void voltageCatcher() {
@@ -626,7 +658,7 @@ void voltageCatcher() {
     float lastValue = -1;
 
     bool  limitReached=false;
-    vector<float> slidingVolts;
+    vector<pair<uint64_t,float>*> slidingVolts;
 
     auto start = currentTimeMillis();
 
@@ -658,7 +690,7 @@ void voltageCatcher() {
         } 
 
         if (capturePoints) {
-            auto point = new pair<long long,float>;
+            auto point = new pair<uint64_t,float>;
             point->first=currentTimeMillis();
             point->second=volts;
             points.push_back(point);
@@ -681,8 +713,10 @@ void voltageCatcher() {
             }
         }
 
-
-        slidingVolts.push_back(volts);
+        auto point = new pair<uint64_t,float>();
+        point->first=currentTimeMillis();
+        point->second=volts;
+        slidingVolts.push_back(point);
 
         if (!limitReached) {
             if (slidingVolts.size()<options.windowSize) {
@@ -700,9 +734,13 @@ void voltageCatcher() {
         } 
         float totalVolts=0;
 
-        slidingVolts.erase(slidingVolts.begin());
+        auto e=slidingVolts.begin();
+        delete e[0];
+        slidingVolts.erase(e);
 
-        for (auto v:slidingVolts) totalVolts+=v;
+//        logger.info("slope=%.12f",calculateSlope(false,false,slidingVolts));
+
+        for (auto v:slidingVolts) totalVolts+=v->second;
 
         volts=totalVolts/options.windowSize;
         lastValue=volts;
@@ -781,6 +819,14 @@ int main(int argc, char **argv) {
     GObject    *window;
     GObject    *button;
     GError     *error=nullptr;
+
+    FILE *slopeFile=fopen("/home/pi/slope.dat","r");
+    if (slopeFile) {
+        fscanf(slopeFile,"%lf", &slope);
+        logger.info("slope=%.12lf",slope);
+    } else {
+        logger.info("calibration required");
+    }
 
 	if (!options.commandLineOptions(argc, argv)) {
 		exit(1);
