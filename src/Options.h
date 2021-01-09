@@ -19,8 +19,12 @@ public:
     int      aspectReferenceVoltageChannel  = 1;
     int      aspectVariableResistorOhms     = 500;
     int      aspectFixedResistorOhms        = 100;
-
+    int      limitSwitchPin                 = 0;
     float    rotorVcc                       = 5.0;
+
+    int      catcherDelay                   = 1;  // ms
+    u_int    windowSize                     = 20;
+
     bool     useAspectReferenceVoltageChannel=false;
 
     char *sampleFileName;

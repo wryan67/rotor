@@ -10,21 +10,21 @@ void Options::usage() {
 	fprintf(stderr, "  -r = aspect reference voltage channel (default=1)\n");
 	fprintf(stderr, "  -v = aspect variable resistor ohms (default=500)\n");
 	fprintf(stderr, "  -x = aspect fixed resistor ohms (default=100)\n");
-
+    fprintf(stderr, "  -l  = limit switch input WiringPi GPIO pin");
 	exit(1);
 }
 
 bool Options::commandLineOptions(int argc, char **argv) {
 	int c, index;
 
-	const char* shortOptions = "c:dfhr:v:x:";
+	const char* shortOptions = "c:dfhl:r:v:x:";
 
 	static struct option longOptions[] = {
 		{"aspectVoltageChannel",            required_argument, NULL, 'c'},
 		{"aspectReferenceVoltageChannel",   required_argument, NULL, 'r'},
 		{"aspectVariableResistorOhms",      required_argument, NULL, 'v'},
 		{"aspectFixedResistorOhms",         required_argument, NULL, 'x'},
-
+        {"limitSwitchPin",                  required_argument, NULL, 'l'},
 		{"debug",       optional_argument, NULL, 'd'},
 		{"full screen", optional_argument, NULL, 'f'},
 		{"help",        optional_argument, NULL, 'h'},
@@ -81,7 +81,7 @@ bool Options::commandLineOptions(int argc, char **argv) {
 
     logger.setGlobalLevel(options.logLevel);
     if (options.logLevel==ALL) {
-        logger.info("debuggin turned on");
+        logger.info("debugging turned on");
     }
 	return true;
 }

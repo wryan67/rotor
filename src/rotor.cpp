@@ -7,6 +7,7 @@
 #include <wiringPiI2C.h>
 #include <ads1115rpi.h>
 #include <neopixel.h>  
+#include <atomic>
 
 #include "motor.h"
 #include "Options.h"
@@ -16,23 +17,30 @@ using namespace common::utility;
 using namespace common::synchronized;
 
 Options options = Options();
+bool debug=false;
 
 #define BASE 200
 #define SPI_CHAN 0
 #define MCP3008_SINGLE  8
 #define MCP3008_DIFF    0
 
-int ADS1115_ADDRESS=0x48;
-int a2dHandle=-1;
+int  ADS1115_ADDRESS=0x48;
+int  a2dHandle=-1;
+
+bool parked=true;
+FILE *logFile=nullptr;
+
+vector<pair<long long, float>*> points;
+bool capturePoints=false;
 
 #define TARGET_FREQ             WS2811_TARGET_FREQ
 #define GPIO_PIN                18   // BCM numbering system
 #define DMA                     10   // DMA=Direct Memory Access
-int led_count =                 1;  // number of pixels in your led strip
-int operationIndicator = 0;
-int stopColor    = 0xff0000;
-int movingColor  = 0x00ff00;
-int brakingColor = 0xffff00;
+int  led_count =                 1;  // number of pixels in your led strip
+int  operationIndicator = 0;
+int  stopColor    = 0xff0000;
+int  movingColor  = 0x00ff00;
+int  brakingColor = 0xffff00;
 
 // #pragma clang diagnostic push
 // #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -45,6 +53,7 @@ GtkWidget *drawingArea=nullptr;
 float rotorDegree=0;
 float wobbleLimit=3;
 bool  forceCompassRedraw=false;
+bool  forceVoltageDisplay=false;
 
 mutex displayLock;
 mutex updateTextLock;
@@ -110,23 +119,39 @@ void updateTextBox(float degree, bool forceRedraw) {
 
 }
 
-static void moveRotorWorker(float degrees, float newDegree) {
-    logger.info("` %.0f degress to %.1f", degrees, newDegree);
 
+bool hitLimitSwitch() {
+    int limitSwitch = digitalRead(options.limitSwitchPin);
+    if (limitSwitch==1) {
+        logger.debug("Limit switch triggered");
+        return true;
+    } else {
+        return false;
+    }
+}
+static void moveRotorWorker(float degrees, float newDegree) {
+
+    // logFile=fopen("/home/pi/travel.csv","w");
+    
+    parked=false;
     if (!activateRotor(degrees)) {
         logger.error("failed to start rotor motor");
         return;
     }
+    logger.info("moving %.0f degrees to %.1f", degrees, newDegree);
+
     neopixel_setPixel(operationIndicator, movingColor);
     neopixel_render();
 
+    usleep(50*1000); // debounce limit switch relay
+
     if (degrees>0) {
-        while (rotorDegree<newDegree) {
-            usleep(250);
+        while (rotorDegree<newDegree && !hitLimitSwitch()) {
+            usleep(250);  // 0.25 ms
         }
     } else {
-        while (rotorDegree>newDegree) {
-            usleep(250);
+        while (rotorDegree>newDegree && !hitLimitSwitch()) {
+            usleep(250);  // 0.25 ms
         }
     }
     logger.info("stopping rotor");
@@ -134,13 +159,25 @@ static void moveRotorWorker(float degrees, float newDegree) {
     neopixel_render();
 
     deactivateRotor();
+    if (logFile) fprintf(logFile,"parked\n");
+    parked=true;
     float targetDeviation=rotorDegree-newDegree;
+    if (debug) {
+        forceVoltageDisplay=true;
+        usleep(options.catcherDelay*1000);
+    }
     logger.info("rotor parked; rotorDegree=%.1f; target deviation=%.1f", 
                     rotorDegree, abs(targetDeviation));
     neopixel_setPixel(operationIndicator, stopColor);
     neopixel_render();
 
     forceCompassRedraw=true;
+
+    if (logFile) {
+        fclose(logFile);
+        delay(20);
+        logFile=nullptr;
+    } 
 }
 
 static void moveRotor(float degrees) {
@@ -249,12 +286,69 @@ static void moveExact(GtkWidget *widget, gpointer data) {
 
 
 
-static void moveOneCounterClockwise(GtkWidget *widget, gpointer data) {
-  moveRotor(-1*wobbleLimit);
+static void calibrate(GtkWidget *widget, gpointer data) {
+    moveRotor(-rotorDegree);
+    delay(1000);
+    capturePoints=true;    
+    moveRotor(180);
+    capturePoints=false;
+  
+    if (points.size()<100) {
+        logger.error("not enough data collected, calibration aborted");
+        return;
+    }
+    auto start=points[0]->first;
+    auto end=points[points.size()-1]->first;
+
+    auto elapsed = end - start;
+
+    if (elapsed<20000) {
+        logger.error("elapsed time is less than 20 seconds, calibration aborted");
+    }
+
+    long count=0;
+    double sumX=0;
+    double sumY=0;
+    for (auto point: points) {
+        if (point->first<(start+1000)) continue;
+        if (point->first>(end-5000)) continue;
+        ++count;
+        sumX+=point->first;
+        sumY+=point->second;
+    }
+
+    double avgX=sumX/count;
+    double avgY=sumY/count;
+    
+
+    double s1=0;
+    double s2=0;
+    for (auto point: points) {
+        if (point->first<(start+1000)) continue;
+        if (point->first>(end-5000)) continue;
+        ++count;
+        
+        double c1=point->first - avgX;
+        double c2=point->second -avgY;
+        s1+=c1*c2;
+        s2+=c1*c1;
+    }
+    double slope = s1/s2;
+    
+    FILE *slopeFile=fopen("~/slope.dat","w");
+    fprintf(slopeFile,"%lf", slope);
+    fclose(slopeFile);
+
+    for (auto point:points) {
+        delete point;
+    }
+    points.clear();
 }
-static void moveOneClockwise(GtkWidget *widget, gpointer data) {
-  moveRotor(wobbleLimit);
-}
+
+
+// static void moveOneClockwise(GtkWidget *widget, gpointer data) {
+//   moveRotor(wobbleLimit);
+// }
 static void moveTenCounterClockwise(GtkWidget *widget, gpointer data) {
   moveRotor(-10);
 }
@@ -262,13 +356,11 @@ static void moveTenClockwise(GtkWidget *widget, gpointer data) {
   moveRotor(10);
 }
 
-static void redraw(GtkWidget *widget, gpointer data) {
-      gtk_widget_set_margin_top(widget, 0);
-  gtk_widget_set_margin_left(widget,  0);
-
-    createDrawingSurface(drawingArea);
-
-}
+// static void redraw(GtkWidget *widget, gpointer data) {
+//       gtk_widget_set_margin_top(widget, 0);
+//   gtk_widget_set_margin_left(widget,  0);
+//     createDrawingSurface(drawingArea);
+// }
 
 static void moveTo(GtkWidget *widget, gpointer data) {
   int *direction = (int*)data;
@@ -496,7 +588,9 @@ void setButton(GtkBuilder *builder, const char*buttonId, char *action, GCallback
   g_signal_connect (button, action, callBack, NULL);
 }
 
-
+void voltageProcess(float volts) {
+    
+}
 
 
 void voltageCatcher() {
@@ -506,89 +600,127 @@ void voltageCatcher() {
     float lastWindowValue=-1;
     float lastValue = -1;
 
-    u_int windowSize=8;
     bool  limitReached=false;
     vector<float> slidingVolts;
 
     auto start = currentTimeMillis();
 
     bool first=true;
-    int skips=0;
+
+    long long lastStatic=0;
 
     while (true) {
         
         float volts = readVoltage(a2dHandle, options.aspectVoltageChannel, 0);
+
+        if (volts>options.rotorVcc) {
+            lastStatic=currentTimeMillis();
+        }
+
+
+        if (volts<0) {
+            logger.error("volts read on channel %d is less than zero: %f", options.aspectVoltageChannel, volts);
+        }
+
+        if (lastStatic) {
+            auto now=currentTimeMillis();
+            auto elapsed=now - lastStatic;
+            if (elapsed<250) {
+                continue;
+            } else {
+                lastStatic=0;
+            }
+        } 
+
+        if (capturePoints) {
+            auto point = new pair<long long,float>;
+            point->first=currentTimeMillis();
+            point->second=volts;
+            points.push_back(point);
+        } 
 
         if (lastValue<0) {
             lastValue=volts;
             continue;
         } else {
             float pDiff = abs((volts-lastValue)/((volts+lastValue)/2));
-            if (pDiff>0.20) {
-                if (skips<4) {
-                    lastValue=volts;
-                    continue;
-                } else {
-                    skips=0;
-                }
+
+            if (!parked && logFile) {
+                fprintf(logFile, "%lld,curr=%f,last=%f,pDiff=%f\n", 
+                    currentTimeMillis(), volts, lastValue, pDiff);
+            }
+
+            if (pDiff>0.25) {
+                lastValue=volts;
+                continue;
             }
         }
 
 
         slidingVolts.push_back(volts);
 
-        if (limitReached) {
-            if (first) {
-                auto end = currentTimeMillis();
-                first=false;
-                long delta = end - start;
-                logger.info("time to fill window<%d>: %ld", windowSize, delta);
-            } 
-            float totalVolts=0;
-
-            slidingVolts.erase(slidingVolts.begin());
-
-            for (auto v:slidingVolts) totalVolts+=v;
-
-            volts=totalVolts/windowSize;
-
-            if (lastWindowValue != volts) {
-                float rotorVcc;
-                if (options.useAspectReferenceVoltageChannel) {
-                    rotorVcc = readVoltage(a2dHandle, options.aspectReferenceVoltageChannel, 0);
-                } else {
-                    rotorVcc = options.rotorVcc;
-                }
-                if (rotorVcc<3) {
-                    logger.error("voltage reference is less then 3 volts, should be ~5 volts");
-                    continue;
-                }
-                float  rotorVout = (rotorVcc*options.aspectVariableResistorOhms) / 
-                            (options.aspectFixedResistorOhms+options.aspectVariableResistorOhms);
-
-                rotorDegree = 360.0 * (volts/rotorVout);
-
-                if (abs(rotorDegree)>360) {
-                    rotorDegree=360;
-                }
-                if (rotorDegree<0) {
-                    rotorDegree=0;
-                }
-
-                if (abs(rotorDegree-lastDegree)>wobbleLimit) {
-                    logger.debug("ch[0]=%.3f rotorDegree=%.1f displayDegree=%.1f", 
-                                    volts, rotorDegree, translateRotor2Display(rotorDegree));
-                    lastDegree=rotorDegree;
-                }
-                lastWindowValue = volts;
+        if (!limitReached) {
+            if (slidingVolts.size()<options.windowSize) {
+                usleep(options.catcherDelay*1000);
+                continue;
             }
-        } else {
-            if (slidingVolts.size()>=windowSize) {
-                limitReached=true;
-            }
+            limitReached=true;
         }
 
-        usleep(20*1000);
+        if (first) {
+            auto end = currentTimeMillis();
+            first=false;
+            long delta = end - start;
+            logger.debug("time to fill window<%d>: %ld", options.windowSize, delta);
+        } 
+        float totalVolts=0;
+
+        slidingVolts.erase(slidingVolts.begin());
+
+        for (auto v:slidingVolts) totalVolts+=v;
+
+        volts=totalVolts/options.windowSize;
+        lastValue=volts;
+
+
+        if (lastWindowValue == volts && !forceVoltageDisplay) {
+            usleep(options.catcherDelay*1000);
+            continue;
+        }
+        lastWindowValue=volts;
+
+        float rotorVcc;
+        if (options.useAspectReferenceVoltageChannel) {
+            rotorVcc = readVoltage(a2dHandle, options.aspectReferenceVoltageChannel, 0);
+        } else {
+            rotorVcc = options.rotorVcc;
+        }
+        if (rotorVcc<3) {
+            logger.error("voltage reference is less then 3 volts, should be ~5 volts");
+            continue;
+        }
+
+        float  rotorVout = (rotorVcc*options.aspectVariableResistorOhms) / 
+                    (options.aspectFixedResistorOhms+options.aspectVariableResistorOhms);
+
+        float newDegree = 360.0 * (volts/rotorVout);
+
+        if (abs(newDegree)>360) {
+            newDegree=360;
+        }
+        if (newDegree<0) {
+            newDegree=0;
+        }
+        rotorDegree=newDegree;
+
+        if (abs(newDegree-lastDegree)>wobbleLimit || forceVoltageDisplay) {
+            forceVoltageDisplay=false;
+            logger.debug("ch[0]=%.3f newDegree=%.1f displayDegree=%.1f", 
+                            volts, newDegree, translateRotor2Display(newDegree));
+            lastDegree=newDegree;
+        }
+
+        usleep(options.catcherDelay*1000);
     }
 }
 
@@ -597,6 +729,27 @@ void initRotorDegrees() {
     forceCompassRedraw=true;
 }
 
+void displayParameters() {
+    if (!debug) {
+        return;
+    }
+    logger.info("fullscreen:                        %s",(options.fullscreen)?"true":"false");
+    logger.info("useAspectReferenceVoltageChannel:  %s",(options.useAspectReferenceVoltageChannel)?"true":"false");
+    logger.info("aspectVoltageChannel:              %d", options.fullscreen);
+    logger.info("aspectReferenceVoltageChannel:     %d", options.aspectReferenceVoltageChannel);
+    logger.info("aspectVariableResistorOhms:        %d", options.aspectVariableResistorOhms);
+    logger.info("aspectFixedResistorOhms:           %d", options.aspectFixedResistorOhms);
+    logger.info("limitSwitchPin:                    %d", options.limitSwitchPin);
+    logger.info("catchderDelay:                     %d ms", options.catcherDelay);
+
+    if (!options.useAspectReferenceVoltageChannel) {
+        logger.info("rotorVcc:                          %f", options.rotorVcc);
+
+        float  rotorVout = (options.rotorVcc*options.aspectVariableResistorOhms) / 
+                (options.aspectFixedResistorOhms+options.aspectVariableResistorOhms);
+        logger.info("max allowed voltage:           %.2f", rotorVout);
+    }
+}
 
 int main(int argc, char **argv) {
     GtkBuilder *builder;
@@ -607,14 +760,17 @@ int main(int argc, char **argv) {
 	if (!options.commandLineOptions(argc, argv)) {
 		exit(1);
 	}
+    debug=(logger.getGlobalLevel()<=DEBUG);
 
+    displayParameters();
 
 	if (wiringPiSetup() != 0) {
 		logger.error("wiringPi setup failed");
 		exit(2);
 	}
+    
+    pinMode(options.limitSwitchPin, INPUT);
 
-	
     if (initRotorMotor()!=0) {
         logger.error("rotor motor initializaion failed");
 		exit(4);
@@ -658,11 +814,8 @@ int main(int argc, char **argv) {
     button = gtk_builder_get_object (builder, "MoveExactButton");
     g_signal_connect (button, "clicked", G_CALLBACK (moveExact), NULL);
 
-    button = gtk_builder_get_object (builder, "MoveLeftButton");
-    g_signal_connect (button, "clicked", G_CALLBACK (moveOneCounterClockwise), NULL);
-
-    button = gtk_builder_get_object (builder, "MoveRightButton");
-    g_signal_connect (button, "clicked", G_CALLBACK (moveOneClockwise), NULL);
+    button = gtk_builder_get_object (builder, "Calibrate");
+    g_signal_connect (button, "clicked", G_CALLBACK (calibrate), NULL);
 
     button = gtk_builder_get_object (builder, "FastReverse");
     g_signal_connect (button, "clicked", G_CALLBACK (moveTenCounterClockwise), NULL);
@@ -670,8 +823,6 @@ int main(int argc, char **argv) {
     button = gtk_builder_get_object (builder, "FastForward");
     g_signal_connect (button, "clicked", G_CALLBACK (moveTenClockwise), NULL);
 
-    button = gtk_builder_get_object (builder, "Redraw");
-    g_signal_connect (button, "clicked", G_CALLBACK (redraw), NULL);
 
     button = gtk_builder_get_object (builder, "quit");
     g_signal_connect (button, "clicked", G_CALLBACK (gtk_main_quit), NULL);
