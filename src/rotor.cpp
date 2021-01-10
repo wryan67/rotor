@@ -291,7 +291,7 @@ static void moveExact(GtkWidget *widget, gpointer data) {
   updateTextBox(translateRotor2Display(rotorDegree), false);
 
 }
-
+/*
 static float calculateSlope(bool saveData, bool debug, 
                             vector<pair<uint64_t, float>*> &dataPoints) {
 
@@ -347,6 +347,7 @@ static float calculateSlope(bool saveData, bool debug,
 
     return slope;
 }
+
 
 static void calibrate() {
 
@@ -412,7 +413,7 @@ static void calibrate() {
 static void calibrateActivated(GtkWidget *widget, gpointer data) {
     thread(calibrate).detach();
 }
-
+*/
 
 // static void moveOneClockwise(GtkWidget *widget, gpointer data) {
 //   moveRotor(wobbleLimit);
@@ -913,8 +914,8 @@ int main(int argc, char **argv) {
     button = gtk_builder_get_object (builder, "MoveExactButton");
     g_signal_connect (button, "clicked", G_CALLBACK (moveExact), NULL);
 
-    button = gtk_builder_get_object (builder, "Calibrate");
-    g_signal_connect (button, "clicked", G_CALLBACK (calibrateActivated), NULL);
+    // button = gtk_builder_get_object (builder, "Calibrate");
+    // g_signal_connect (button, "clicked", G_CALLBACK (calibrateActivated), NULL);
 
     button = gtk_builder_get_object (builder, "FastReverse");
     g_signal_connect (button, "clicked", G_CALLBACK (moveTenCounterClockwise), NULL);

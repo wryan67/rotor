@@ -5,7 +5,7 @@
 
 stopMotors
 
-ps -fu `logname` | awk '{if (/rotor/ && !/awk/ && !/tail/) system(sprintf("kill %d", $2))}'
+ps -fu root | awk '{if (/rotor/ && !/awk/ && !/tail/ && !/sudo/) system(sprintf("sudo kill %d", $2))}'
 
 stopMotors
 sleep 5

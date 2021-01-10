@@ -90,6 +90,7 @@ void deactivateRotor() {
     long parkingTime = end - now;
     logger.info("travel elapsed time: %ld; parking time: %ld", travelTime, parkingTime);
 }
+
 bool isRotorMovingClockwise() {
     if (_isRotorMoving.get() && motorDirection>0) {
         return true;
@@ -97,6 +98,7 @@ bool isRotorMovingClockwise() {
         return false;
     }
 }
+
 bool activateRotor(float direction) {
     motorDirection=direction;
     if (direction==0) {

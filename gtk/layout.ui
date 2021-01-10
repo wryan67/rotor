@@ -219,6 +219,9 @@
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
+                <style>
+                  <class name="largeButton"/>
+                </style>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -312,14 +315,7 @@
                 <property name="vexpand">True</property>
                 <property name="yalign">1</property>
                 <child>
-                  <object class="GtkButton" id="Calibrate">
-                    <property name="label" translatable="yes">Calibrate</property>
-                    <property name="name">Redraw</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="receives_default">True</property>
-                    <property name="valign">end</property>
-                  </object>
+                  <placeholder/>
                 </child>
               </object>
               <packing>
@@ -341,6 +337,9 @@
                     <property name="can_focus">True</property>
                     <property name="receives_default">True</property>
                     <property name="valign">end</property>
+                    <style>
+                      <class name="largeButton"/>
+                    </style>
                   </object>
                 </child>
               </object>
