@@ -70,8 +70,8 @@
                 <child>
                   <object class="GtkDrawingArea" id="CompassDrawingArea">
                     <property name="name">CompassWidget</property>
-                    <property name="width_request">125</property>
-                    <property name="height_request">125</property>
+                    <property name="width_request">130</property>
+                    <property name="height_request">130</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="hexpand">True</property>
@@ -259,7 +259,8 @@
                     <property name="valign">center</property>
                     <property name="margin_left">5</property>
                     <property name="margin_right">5</property>
-                    <property name="label" translatable="yes">Move to Degree:</property>
+                    <property name="label" translatable="yes">Move to 
+degree:</property>
                     <property name="justify">right</property>
                     <property name="ellipsize">end</property>
                     <property name="xalign">1</property>
