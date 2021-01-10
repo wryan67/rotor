@@ -751,10 +751,9 @@ void voltageCatcher() {
         delete e[0];
         slidingVolts.erase(e);
 
-        if (++count%10==0 && isRotorReallyMoving()) 
-
+        // if (++count%10==0 && isRotorReallyMoving()) {
         // logger.info("slope=%.9f",calculateSlope(false,false,slopeVolts));
-
+        // }
         for (auto v:slidingVolts) totalVolts+=v->second;
 
         volts=totalVolts/options.windowSize;
