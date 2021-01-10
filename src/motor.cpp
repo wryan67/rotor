@@ -28,6 +28,7 @@ static Logger logger{"RotorMotor"};
 
 static int64_t          startTime=-1;
 static SynchronizedBool _isRotorMoving{false};
+static bool _isRotorReallyMoving=false;
 
 int initRotorMotor() {
     logger.info("initializing motor");
@@ -54,6 +55,10 @@ bool isRotorMoving() {
     return _isRotorMoving.get();
 }
 
+bool isRotorReallyMoving() {
+    return _isRotorReallyMoving;
+}
+
 void deactivateRotor() {
     auto now = currentTimeMillis();
     long travelTime = now - startTime;
@@ -69,6 +74,8 @@ void deactivateRotor() {
 
     digitalWrite(ClockwisePin,  RELAY_DEACTIVATED);
     digitalWrite(CCWPin,        RELAY_DEACTIVATED);
+
+    _isRotorReallyMoving=false;
 
     logger.debug("parking delay=%u", parkingDelay);
     delay(parkingDelay);
@@ -93,6 +100,7 @@ bool activateRotor(float direction) {
         return false;
     }
 
+
     startTime = currentTimeMillis();
 
     const char *vector;
@@ -107,6 +115,7 @@ bool activateRotor(float direction) {
     }
 
     logger.debug("moving %s; pin=%d", vector, motorPin);
+    _isRotorReallyMoving=true;
     digitalWrite(BrakePin, RELAY_ACTIVATED);
     delay(10);
     digitalWrite(motorPin, RELAY_ACTIVATED);

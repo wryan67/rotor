@@ -32,7 +32,7 @@ FILE *logFile=nullptr;
 
 vector<pair<uint64_t, float>*> points;
 bool capturePoints=false;
-double slope;
+float slope;
 
 #define TARGET_FREQ             WS2811_TARGET_FREQ
 #define GPIO_PIN                18   // BCM numbering system
@@ -285,58 +285,59 @@ static void moveExact(GtkWidget *widget, gpointer data) {
 
 }
 
-static double calculateSlope(bool saveData, bool saveSlope, 
-                            vector<pair<uint64_t, float>*> &points) {
+static float calculateSlope(bool saveData, bool debug, 
+                            vector<pair<uint64_t, float>*> &dataPoints) {
 
     FILE *slopeFile=nullptr;
     FILE *dataFile=nullptr;
     if (saveData) {
         dataFile=fopen("/home/pi/slope.csv","w");
-    }
-    if (saveSlope) {
         slopeFile=fopen("/home/pi/slope.dat","w");
     }
 
-    double sumX=0;
-    double sumY=0;
-    double sumXsq=0;
-    double sumXY=0;
+    uint64_t start = dataPoints[0]->first;
+    float sumX=0;
+    float sumY=0;
+    for (auto point: dataPoints) {
+        sumX+=point->first-start;
+        sumY+=point->second;
+    }    
+    float avgX=sumX/dataPoints.size();
+    float avgY=sumY/dataPoints.size();
 
-    auto start=points[0]->first;
+    float sumXY=0;
+    float sumXX=0;
 
-    for (auto point: points) {
+    for (auto point: dataPoints) {
         auto x=point->first-start;
         auto y=point->second;
+        if (saveData) fprintf(dataFile,"%lld,%.9f\n", x, y);
 
-        if (saveData) fprintf(dataFile,"%lld,%.12f\n", x, y);
+        float c1=x-avgX;
+        float c2=y-avgY;
 
-        auto xSq = x*x;
-        auto xy  = x*y;
+        sumXY+=(c1*c2);
+        sumXX+=(c1*c1);
 
-        sumX+=x;
-        sumY+=y;
-        sumXsq+=xSq;
-        sumXY+=xy;
+        if (debug) {
+            fprintf(stderr,"%lld,%.9f,%f,%f\n", x, y, c1, c2);
+        }
     }
-
-    double s1=sumXY  - (sumX * sumY);
-    double s2=sumXsq - (sumX * sumX);
     
-    double slope = s1/s2;
 
-    // logger.debug("points: %d",points.size());
-    // logger.debug("sumX=%lf",sumX);
-    // logger.debug("sumY=%lf",sumY);
-    // logger.debug("sumXsq=%lf",sumXsq);
-    // logger.debug("sumXY=%lf",sumXY);
+    float slope = sumXY/sumXX;
+    if (debug) {
+        fprintf(stderr,"avgx=%f avgy=%f\n",avgX,avgY);
+        fprintf(stderr,"sumXY=%f sumXX=%f\n",sumXY,sumXX);
+        fprintf(stderr,"slope=%f\n",slope);
+    }
 
     if (saveData) {
+        fprintf(slopeFile,"%.9f", slope);
+        fclose(slopeFile);
         fclose(dataFile);
     }
-    if (saveSlope) {
-        fprintf(slopeFile,"%.12lf", slope);
-        fclose(slopeFile);
-    }
+
     return slope;
 }
 
@@ -391,8 +392,8 @@ static void calibrate() {
 
     logger.info("calculating slope... pionts=%d",savePoints.size());
 
-    auto slope=calculateSlope(true, true, savePoints);
-    logger.info("slope=%.12lf",slope);
+    auto slope=calculateSlope(true, false, savePoints);
+    logger.info("slope=%.9f",slope);
     logger.info("calibration complete");
 
     for (auto point:savePoints) {
@@ -659,19 +660,21 @@ void voltageCatcher() {
 
     bool  limitReached=false;
     vector<pair<uint64_t,float>*> slidingVolts;
+    vector<pair<uint64_t,float>*> slopeVolts;
 
     auto start = currentTimeMillis();
 
     bool first=true;
 
+    uint32_t count=0;
     long long lastStatic=0;
 
     while (true) {
-        
+        auto now = currentTimeMillis();
         float volts = readVoltage(a2dHandle, options.aspectVoltageChannel, 0);
 
         if (volts>options.rotorVcc) {
-            lastStatic=currentTimeMillis();
+            lastStatic=now;
         }
 
 
@@ -680,8 +683,7 @@ void voltageCatcher() {
         }
 
         if (lastStatic) {
-            auto now=currentTimeMillis();
-            auto elapsed=now - lastStatic;
+            auto elapsed = now - lastStatic;
             if (elapsed<250) {
                 continue;
             } else {
@@ -691,10 +693,21 @@ void voltageCatcher() {
 
         if (capturePoints) {
             auto point = new pair<uint64_t,float>;
-            point->first=currentTimeMillis();
+            point->first=now;
             point->second=volts;
             points.push_back(point);
         } 
+
+        auto sPoint = new pair<uint64_t,float>;
+        sPoint->first=now;
+        sPoint->second=volts;
+        slopeVolts.push_back(sPoint);
+
+        if (slopeVolts.size()>250) {
+            auto e = slopeVolts.begin();
+            delete e[0];
+            slopeVolts.erase(e);
+        }
 
         if (lastValue<0) {
             lastValue=volts;
@@ -704,7 +717,7 @@ void voltageCatcher() {
 
             if (!parked && logFile) {
                 fprintf(logFile, "%lld,curr=%f,last=%f,pDiff=%f\n", 
-                    currentTimeMillis(), volts, lastValue, pDiff);
+                    now, volts, lastValue, pDiff);
             }
 
             if (pDiff>0.25) {
@@ -714,7 +727,7 @@ void voltageCatcher() {
         }
 
         auto point = new pair<uint64_t,float>();
-        point->first=currentTimeMillis();
+        point->first=now;
         point->second=volts;
         slidingVolts.push_back(point);
 
@@ -738,7 +751,9 @@ void voltageCatcher() {
         delete e[0];
         slidingVolts.erase(e);
 
-//        logger.info("slope=%.12f",calculateSlope(false,false,slidingVolts));
+        if (++count%10==0 && isRotorReallyMoving()) 
+
+        // logger.info("slope=%.9f",calculateSlope(false,false,slopeVolts));
 
         for (auto v:slidingVolts) totalVolts+=v->second;
 
@@ -822,8 +837,8 @@ int main(int argc, char **argv) {
 
     FILE *slopeFile=fopen("/home/pi/slope.dat","r");
     if (slopeFile) {
-        fscanf(slopeFile,"%lf", &slope);
-        logger.info("slope=%.12lf",slope);
+        fscanf(slopeFile,"%f", &slope);
+        logger.info("slope=%.9f",slope);
     } else {
         logger.info("calibration required");
     }
