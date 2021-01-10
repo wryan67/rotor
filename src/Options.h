@@ -22,7 +22,7 @@ public:
     int      limitSwitchPin                 = 0;
     float    rotorVcc                       = 5.0;
 
-    int      catcherDelay                   = 1;  // ms
+    int      catcherDelay                   = 100*1000;  // us
     u_int    windowSize                     = 20;
 
     bool     useAspectReferenceVoltageChannel=false;

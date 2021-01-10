@@ -24,6 +24,7 @@ bool debug=false;
 #define MCP3008_SINGLE  8
 #define MCP3008_DIFF    0
 
+bool cwLimitPoint=false;
 int  ADS1115_ADDRESS=0x48;
 int  a2dHandle=-1;
 
@@ -147,7 +148,13 @@ static void moveRotorWorker(float degrees, float newDegree) {
 
     usleep(50*1000); // debounce limit switch relay
 
-    if (degrees>0) {
+    if (cwLimitPoint && degrees<0) {
+        logger.info("leaving twilight zone");
+        delay(3000);
+        cwLimitPoint=false;
+    }
+
+    if (degrees>0) { 
         while (rotorDegree<newDegree && !hitLimitSwitch()) {
             usleep(250);  // 0.25 ms
         }
@@ -166,7 +173,7 @@ static void moveRotorWorker(float degrees, float newDegree) {
     float targetDeviation=rotorDegree-newDegree;
     if (debug) {
         forceVoltageDisplay=true;
-        usleep(options.catcherDelay*1000);
+        usleep(options.catcherDelay);
     }
     logger.info("rotor parked; rotorDegree=%.1f; target deviation=%.1f", 
                     rotorDegree, abs(targetDeviation));
@@ -666,7 +673,7 @@ void voltageCatcher() {
 
     bool first=true;
 
-    uint32_t count=0;
+    // uint32_t count=0;
     long long lastStatic=0;
 
     while (true) {
@@ -698,16 +705,16 @@ void voltageCatcher() {
             points.push_back(point);
         } 
 
-        auto sPoint = new pair<uint64_t,float>;
-        sPoint->first=now;
-        sPoint->second=volts;
-        slopeVolts.push_back(sPoint);
+        // auto sPoint = new pair<uint64_t,float>;
+        // sPoint->first=now;
+        // sPoint->second=volts;
+        // slopeVolts.push_back(sPoint);
 
-        if (slopeVolts.size()>250) {
-            auto e = slopeVolts.begin();
-            delete e[0];
-            slopeVolts.erase(e);
-        }
+        // if (slopeVolts.size()>250) {
+        //     auto e = slopeVolts.begin();
+        //     delete e[0];
+        //     slopeVolts.erase(e);
+        // }
 
         if (lastValue<0) {
             lastValue=volts;
@@ -733,10 +740,17 @@ void voltageCatcher() {
 
         if (!limitReached) {
             if (slidingVolts.size()<options.windowSize) {
-                usleep(options.catcherDelay*1000);
+                usleep(options.catcherDelay);
                 continue;
             }
             limitReached=true;
+        }
+
+        if (volts>1.5 && isRotorMovingClockwise()) {
+            if (!cwLimitPoint) {
+                logger.info("entering twilight zone");
+                cwLimitPoint=true;
+            }
         }
 
         if (first) {
@@ -761,7 +775,7 @@ void voltageCatcher() {
 
 
         if (lastWindowValue == volts && !forceVoltageDisplay) {
-            usleep(options.catcherDelay*1000);
+            usleep(options.catcherDelay);
             continue;
         }
         lastWindowValue=volts;
@@ -797,7 +811,7 @@ void voltageCatcher() {
             lastDegree=newDegree;
         }
 
-        usleep(options.catcherDelay*1000);
+        usleep(options.catcherDelay);
     }
 }
 

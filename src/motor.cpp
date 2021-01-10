@@ -16,6 +16,7 @@
 using namespace std;
 using namespace common::utility;
 using namespace common::synchronized;
+
     
 enum RotorPin {
     isMotorReadyPin=26,
@@ -29,6 +30,8 @@ static Logger logger{"RotorMotor"};
 static int64_t          startTime=-1;
 static SynchronizedBool _isRotorMoving{false};
 static bool _isRotorReallyMoving=false;
+
+static float motorDirection=0;
 
 int initRotorMotor() {
     logger.info("initializing motor");
@@ -87,9 +90,15 @@ void deactivateRotor() {
     long parkingTime = end - now;
     logger.info("travel elapsed time: %ld; parking time: %ld", travelTime, parkingTime);
 }
-
+bool isRotorMovingClockwise() {
+    if (_isRotorMoving.get() && motorDirection>0) {
+        return true;
+    } else {
+        return false;
+    }
+}
 bool activateRotor(float direction) {
-
+    motorDirection=direction;
     if (direction==0) {
         logger.error("requested motor move with direction of zero");
         return false;
