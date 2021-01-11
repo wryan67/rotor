@@ -86,12 +86,15 @@
             </child>
             <child>
               <object class="GtkButton" id="nwButton">
-                <property name="label" translatable="yes">nw</property>
+                <property name="label" translatable="yes">NW</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="hexpand">True</property>
                 <property name="vexpand">True</property>
+                <style>
+                  <class name="Compass"/>
+                </style>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -100,12 +103,15 @@
             </child>
             <child>
               <object class="GtkButton" id="neButton">
-                <property name="label" translatable="yes">ne</property>
+                <property name="label" translatable="yes">NE</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="hexpand">True</property>
                 <property name="vexpand">True</property>
+                <style>
+                  <class name="Compass"/>
+                </style>
               </object>
               <packing>
                 <property name="left_attach">2</property>
@@ -114,12 +120,15 @@
             </child>
             <child>
               <object class="GtkButton" id="seButton">
-                <property name="label" translatable="yes">se</property>
+                <property name="label" translatable="yes">SE</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="hexpand">False</property>
                 <property name="vexpand">False</property>
+                <style>
+                  <class name="Compass"/>
+                </style>
               </object>
               <packing>
                 <property name="left_attach">2</property>
@@ -128,12 +137,15 @@
             </child>
             <child>
               <object class="GtkButton" id="swButton">
-                <property name="label" translatable="yes">sw</property>
+                <property name="label" translatable="yes">SW</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="hexpand">True</property>
                 <property name="vexpand">True</property>
+                <style>
+                  <class name="Compass"/>
+                </style>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -142,12 +154,15 @@
             </child>
             <child>
               <object class="GtkButton" id="northButton">
-                <property name="label" translatable="yes">north</property>
+                <property name="label" translatable="yes">North</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="hexpand">True</property>
                 <property name="vexpand">True</property>
+                <style>
+                  <class name="Compass"/>
+                </style>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -156,12 +171,15 @@
             </child>
             <child>
               <object class="GtkButton" id="eastButton">
-                <property name="label" translatable="yes">east</property>
+                <property name="label" translatable="yes">East</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="hexpand">True</property>
                 <property name="vexpand">True</property>
+                <style>
+                  <class name="Compass"/>
+                </style>
               </object>
               <packing>
                 <property name="left_attach">2</property>
@@ -170,12 +188,15 @@
             </child>
             <child>
               <object class="GtkButton" id="westButton">
-                <property name="label" translatable="yes">west</property>
+                <property name="label" translatable="yes">West</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="hexpand">True</property>
                 <property name="vexpand">True</property>
+                <style>
+                  <class name="Compass"/>
+                </style>
               </object>
               <packing>
                 <property name="left_attach">0</property>
@@ -184,12 +205,15 @@
             </child>
             <child>
               <object class="GtkButton" id="southButton">
-                <property name="label" translatable="yes">south</property>
+                <property name="label" translatable="yes">South</property>
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
                 <property name="receives_default">True</property>
                 <property name="hexpand">True</property>
                 <property name="vexpand">True</property>
+                <style>
+                  <class name="Compass"/>
+                </style>
               </object>
               <packing>
                 <property name="left_attach">1</property>
@@ -213,102 +237,6 @@
             <property name="margin_right">5</property>
             <property name="margin_top">5</property>
             <property name="margin_bottom">5</property>
-            <child>
-              <object class="GtkButton" id="MoveExactButton">
-                <property name="label" translatable="yes">Move</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <style>
-                  <class name="largeButton"/>
-                </style>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">1</property>
-                <property name="width">4</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkGrid">
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <child>
-                  <object class="GtkEntry" id="DegreeInputBox">
-                    <property name="name">DegreeInput</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="tooltip_text" translatable="yes">Degrees to move to</property>
-                    <property name="halign">end</property>
-                    <property name="valign">start</property>
-                    <property name="max_length">5</property>
-                    <property name="width_chars">5</property>
-                    <property name="max_width_chars">3</property>
-                    <property name="caps_lock_warning">False</property>
-                  </object>
-                  <packing>
-                    <property name="left_attach">1</property>
-                    <property name="top_attach">0</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkLabel" id="DegressInputLabel">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="halign">end</property>
-                    <property name="valign">center</property>
-                    <property name="margin_left">5</property>
-                    <property name="margin_right">5</property>
-                    <property name="label" translatable="yes">Move to 
-degree:</property>
-                    <property name="justify">right</property>
-                    <property name="ellipsize">end</property>
-                    <property name="xalign">1</property>
-                  </object>
-                  <packing>
-                    <property name="left_attach">0</property>
-                    <property name="top_attach">0</property>
-                  </packing>
-                </child>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">0</property>
-                <property name="width">4</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="FastForward">
-                <property name="label" translatable="yes">&gt;&gt;</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <style>
-                  <class name="largeButton"/>
-                </style>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">2</property>
-                <property name="width">2</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="FastReverse">
-                <property name="label" translatable="yes">&lt;&lt;</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <style>
-                  <class name="largeButton"/>
-                </style>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">2</property>
-                <property name="width">2</property>
-              </packing>
-            </child>
             <child>
               <object class="GtkAlignment">
                 <property name="visible">True</property>
@@ -351,16 +279,87 @@ degree:</property>
               </packing>
             </child>
             <child>
-              <placeholder/>
+              <object class="GtkButton" id="FastReverse">
+                <property name="label" translatable="yes">&lt;&lt;</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <style>
+                  <class name="largeButton"/>
+                </style>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">3</property>
+                <property name="width">2</property>
+              </packing>
             </child>
             <child>
-              <placeholder/>
+              <object class="GtkButton" id="FastForward">
+                <property name="label" translatable="yes">&gt;&gt;</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <style>
+                  <class name="largeButton"/>
+                </style>
+              </object>
+              <packing>
+                <property name="left_attach">2</property>
+                <property name="top_attach">3</property>
+                <property name="width">2</property>
+              </packing>
             </child>
             <child>
-              <placeholder/>
+              <object class="GtkEntry" id="DegreeInputBox">
+                <property name="name">DegreeInput</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="tooltip_text" translatable="yes">Degrees to move to</property>
+                <property name="halign">center</property>
+                <property name="valign">start</property>
+                <property name="max_length">5</property>
+                <property name="width_chars">5</property>
+                <property name="max_width_chars">3</property>
+                <property name="caps_lock_warning">False</property>
+                <style>
+                  <class name="boldInput"/>
+                </style>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">1</property>
+                <property name="width">4</property>
+              </packing>
             </child>
             <child>
-              <placeholder/>
+              <object class="GtkLabel">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label" translatable="yes">Move to degree:</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+                <property name="width">4</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkButton" id="MoveExactButton">
+                <property name="label" translatable="yes">Move</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="has_focus">True</property>
+                <property name="receives_default">True</property>
+                <style>
+                  <class name="largeButton"/>
+                </style>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">2</property>
+                <property name="width">4</property>
+              </packing>
             </child>
           </object>
           <packing>

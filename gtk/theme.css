@@ -1,9 +1,17 @@
-.aqua {
-    background-color: silver;
+.Compass {
+    /* background-color: silver;  */
     color: navy;
-    font-weight: bold;
+    font-weight: Normal;
+    font-size: 1.0cm;
+    font-family: "Pau the 1st"; 
 }
 
+.boldInput {
+    font-weight: 900;
+    font-size: 0.75cm;
+}
 .largeButton {
     min-height: 50px;
+    font-weight: 900;
+    font-family: Verdana, Geneva, Tahoma, sans-serif;
 }
