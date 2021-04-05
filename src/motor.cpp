@@ -84,7 +84,7 @@ void deactivateRotor() {
     logger.debug("parking delay=%u", parkingDelay);
     delay(parkingDelay);
     digitalWrite(BrakePin,      RELAY_DEACTIVATED);
-    braekStatus=RELAY_DEACTIVATED;
+    brakeStatus=RELAY_DEACTIVATED;
     
     _isRotorMoving.set(false);
 
