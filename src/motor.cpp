@@ -76,8 +76,10 @@ void deactivateRotor() {
         parkingDelay = 1000;
     }    
 
+    logger.debug("deactivating rotor motor");
     digitalWrite(ClockwisePin,  RELAY_DEACTIVATED);
     digitalWrite(CCWPin,        RELAY_DEACTIVATED);
+    digitalWrite(CWPin,         RELAY_DEACTIVATED);
 
     _isRotorReallyMoving=false;
 
