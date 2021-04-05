@@ -79,15 +79,16 @@ void deactivateRotor() {
     logger.debug("deactivating rotor motor");
     digitalWrite(ClockwisePin,  RELAY_DEACTIVATED);
     digitalWrite(CCWPin,        RELAY_DEACTIVATED);
-    digitalWrite(CWPin,         RELAY_DEACTIVATED);
 
     _isRotorReallyMoving=false;
 
     logger.debug("parking delay=%u", parkingDelay);
     delay(parkingDelay);
+
+    logger.debug("parking brake engaged");
     digitalWrite(BrakePin,      RELAY_DEACTIVATED);
     brakeStatus=RELAY_DEACTIVATED;
-    
+
     _isRotorMoving.set(false);
 
     auto end = currentTimeMillis();
@@ -129,11 +130,15 @@ bool activateRotor(float direction) {
         vector="counter-clockwise";
     }
 
-    logger.debug("moving %s; pin=%d", vector, motorPin);
-    _isRotorReallyMoving=true;
+    logger.debug("actiating rotor motor %s; pin=%d", vector, motorPin);
+
+
+    logger.debug("parking brake disengaged");
     digitalWrite(BrakePin, RELAY_ACTIVATED);
     brakeStatus=RELAY_ACTIVATED;
-    delay(10);
+    _isRotorReallyMoving=true;
+
+    delay(100);
     digitalWrite(motorPin, RELAY_ACTIVATED);
     return true;
 }
