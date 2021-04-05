@@ -27,6 +27,7 @@ enum RotorPin {
 
 static Logger logger{"RotorMotor"};
 
+static int   brakeStatus=-1;
 static int64_t          startTime=-1;
 static SynchronizedBool _isRotorMoving{false};
 static bool _isRotorReallyMoving=false;
@@ -83,7 +84,8 @@ void deactivateRotor() {
     logger.debug("parking delay=%u", parkingDelay);
     delay(parkingDelay);
     digitalWrite(BrakePin,      RELAY_DEACTIVATED);
-
+    braekStatus=RELAY_DEACTIVATED;
+    
     _isRotorMoving.set(false);
 
     auto end = currentTimeMillis();
@@ -128,7 +130,12 @@ bool activateRotor(float direction) {
     logger.debug("moving %s; pin=%d", vector, motorPin);
     _isRotorReallyMoving=true;
     digitalWrite(BrakePin, RELAY_ACTIVATED);
+    brakeStatus=RELAY_ACTIVATED;
     delay(10);
     digitalWrite(motorPin, RELAY_ACTIVATED);
     return true;
+}
+
+int getBrakeStatus() {
+    return brakeStatus;
 }
