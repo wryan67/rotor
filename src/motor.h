@@ -7,3 +7,4 @@ bool activateRotor(float direction);
 void deactivateRotor();
 
 bool isRotorMovingClockwise();
+int  getBrakeStatus();
