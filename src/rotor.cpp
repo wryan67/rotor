@@ -807,8 +807,8 @@ void voltageCatcher() {
 
         if (abs(newDegree-lastDegree)>wobbleLimit || forceVoltageDisplay) {
             forceVoltageDisplay=false;
-            logger.debug("ch[0]=%.3f newDegree=%.1f displayDegree=%.1f", 
-                            volts, newDegree, translateRotor2Display(newDegree));
+            logger.debug("bs=%d ch[0]=%.3f newDegree=%.1f displayDegree=%.1f", 
+                      getBrakeStatus(),  volts, newDegree, translateRotor2Display(newDegree));
             lastDegree=newDegree;
         }
 
