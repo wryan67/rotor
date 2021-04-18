@@ -8,3 +8,4 @@ void deactivateRotor();
 
 bool isRotorMovingClockwise();
 int  getBrakeStatus();
+void initPins();
