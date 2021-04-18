@@ -1,13 +1,13 @@
 #!/bin/ksh
 
-ROTOR=192.168.33.166
+ROTOR_PI=rotor
 
 for FILE in bin/* gtk/*
 do 
-  scp $FILE pi@$ROTOR:/home/pi/bin || exit $?
+  scp $FILE pi@$ROTOR_PI:/home/pi/bin || exit $?
 done
 
 for FILE in fonts/*
 do 
-  scp "$FILE" $ROTOR:/usr/share/fonts/truetype/user
+  scp "$FILE" $ROTOR_PI:/usr/share/fonts/truetype/user
 done
