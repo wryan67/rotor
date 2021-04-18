@@ -23,6 +23,7 @@ enum RotorPin {
     ClockwisePin=27,
     BrakePin=28,
     CCWPin=29,
+    ExternalPower=2
 };
 
 static Logger logger{"RotorMotor"};
@@ -42,14 +43,27 @@ int initRotorMotor() {
     logger.debug("    CCW:              %2d", CCWPin);
     logger.debug("    BrakePin:         %2d", BrakePin);
 
+    initPins();
+
     pinMode(isMotorReadyPin,  INPUT);
     pinMode(BrakePin,         OUTPUT);
     pinMode(ClockwisePin,     OUTPUT);
     pinMode(CCWPin,           OUTPUT);
+    pinMode(ExternalPower,    OUTPUT);
 
-    deactivateRotor();
+    initPins();
+    digitalWrite(ExternalPower, RELAY_ACTIVATED);
+
     return 0;
 }
+
+void initPins() {
+    digitalWrite(ClockwisePin,  RELAY_DEACTIVATED);
+    digitalWrite(CCWPin,        RELAY_DEACTIVATED);
+    digitalWrite(BrakePin,      RELAY_DEACTIVATED);
+    digitalWrite(ExternalPower, RELAY_DEACTIVATED);
+}
+
 
 bool isRotorMotorReady() {
     return digitalRead(isMotorReadyPin);
