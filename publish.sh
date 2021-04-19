@@ -2,6 +2,9 @@
 
 ROTOR_PI=rotor
 
+make
+[ $? != 0 ] && exit 2
+
 for FILE in bin/* gtk/*
 do 
   scp $FILE pi@$ROTOR_PI:/home/pi/bin || exit $?

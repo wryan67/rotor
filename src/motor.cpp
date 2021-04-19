@@ -23,7 +23,7 @@ enum RotorPin {
     ClockwisePin=27,
     BrakePin=28,
     CCWPin=29,
-    ExternalPower=2
+    ExternalPower=25
 };
 
 static Logger logger{"RotorMotor"};
@@ -39,6 +39,7 @@ int initRotorMotor() {
     logger.info("initializing motor");
     logger.debug("GPIO WiringPi motor pins:");
     logger.debug("    isMotorReadyPin:  %2d", isMotorReadyPin);
+    logger.debug("    ExternalPower:    %2d", ExternalPower);
     logger.debug("    CW:               %2d", ClockwisePin);
     logger.debug("    CCW:              %2d", CCWPin);
     logger.debug("    BrakePin:         %2d", BrakePin);
@@ -65,9 +66,9 @@ void initPins() {
 }
 
 
-bool isRotorMotorReady() {
-    return digitalRead(isMotorReadyPin);
-}
+ bool isRotorMotorReady() {
+     return digitalRead(isMotorReadyPin);
+ }
 
 bool isRotorMoving() {
     return _isRotorMoving.get();
