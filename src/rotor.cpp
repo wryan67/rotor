@@ -54,7 +54,6 @@ GtkWidget *drawingArea=nullptr;
 
 float rotorSlope=0;
 float rotorDegree=0;
-float wobbleLimit=3;
 bool  forceCompassRedraw=false;
 bool  forceVoltageDisplay=false;
 
@@ -638,7 +637,7 @@ void renderCompass() {
     usleep(50*1000);
     auto currDegree=rotorDegree;
     auto delta=abs(currDegree - lastDegree);
-    if (delta>wobbleLimit || forceCompassRedraw) {
+    if (delta>options.wobbleLimit || forceCompassRedraw) {
       forceCompassRedraw=false;  
       lastDegree=currDegree;
       try {
@@ -679,145 +678,100 @@ void setButton(GtkBuilder *builder, const char*buttonId, char *action, GCallback
   g_signal_connect (button, action, callBack, NULL);
 }
 
+float getDegree(float volts) {
+    return 5.7849*volts*volts + 42.32*volts + 1.6645;
+}
 
 
 void voltageCatcher() {
     logger.debug("init voltage catcher; channel=%d", options.aspectVoltageChannel);
   
     float lastDegree=999;
-    float lastWindowValue=-1;
-    float lastValue = -1;
 
-    bool  limitReached=false;
     vector<pair<uint64_t,float>*> slidingVolts;
-    vector<pair<uint64_t,float>*> slopeVolts;
 
-    auto start = currentTimeMillis();
+    float voltsMax = (options.rotorVcc * options.aspectVariableResistorOhms) /
+                     (options.aspectFixedResistorOhms + options.aspectVariableResistorOhms);
 
-    bool first=true;
-
+    float twilightZone = voltsMax * 0.95;
+    float vccFudge = voltsMax*0.99;
+    float lastVolts=-1;
     // uint32_t count=0;
-    long long lastStatic=0;
 
     while (true) {
         auto now = currentTimeMillis();
         float volts = readVoltage(a2dHandle, options.aspectVoltageChannel, 0);
 
-        if (volts>options.rotorVcc) {
-            lastStatic=now;
-        }
-
-
         if (volts<0) {
             logger.error("volts read on channel %d is less than zero: %f", options.aspectVoltageChannel, volts);
+            volts=0;
         }
 
-        if (lastStatic) {
-            auto elapsed = now - lastStatic;
-            if (elapsed<250) {
-                continue;
-            } else {
-                lastStatic=0;
-            }
-        } 
+        if (volts>voltsMax) {
+            logger.error("volts read on channel %d is more than max allowed: actual=%f, allowed=%f", options.aspectVoltageChannel, volts, voltsMax);
+            volts=voltsMax;
+        }
 
-        if (capturePoints) {
-            auto point = new pair<uint64_t,float>;
-            point->first=now;
-            point->second=volts;
-            points.push_back(point);
-        } 
-
-        // auto sPoint = new pair<uint64_t,float>;
-        // sPoint->first=now;
-        // sPoint->second=volts;
-        // slopeVolts.push_back(sPoint);
-
-        // if (slopeVolts.size()>250) {
-        //     auto e = slopeVolts.begin();
-        //     delete e[0];
-        //     slopeVolts.erase(e);
-        // }
-
-        if (lastValue<0) {
-            lastValue=volts;
+        if (lastVolts<0) {
+            lastVolts=volts;
             continue;
         } else {
-            float pDiff = abs((volts-lastValue)/((volts+lastValue)/2));
+            float pDiff = abs((volts-lastVolts)/((volts+lastVolts)/2));
 
             if (!parked && logFile) {
                 fprintf(logFile, "%lld,curr=%f,last=%f,pDiff=%f\n", 
-                    now, volts, lastValue, pDiff);
+                    now, volts, lastVolts, pDiff);
             }
 
             if (pDiff>0.25) {
-                lastValue=volts;
+                lastVolts=volts;
                 continue;
             }
         }
+
 
         auto point = new pair<uint64_t,float>();
         point->first=now;
         point->second=volts;
         slidingVolts.push_back(point);
 
-        if (!limitReached) {
-            if (slidingVolts.size()<options.windowSize) {
-                usleep(options.catcherDelay);
-                continue;
-            }
-            limitReached=true;
+        if (capturePoints) {
+            points.push_back(point);
+        } 
+        if (slidingVolts.size()>options.windowSize) {
+            auto e=slidingVolts.begin();
+            delete e[0];
+            slidingVolts.erase(e);
         }
 
-        if (volts>1.5 && isRotorMovingClockwise()) {
+
+        if (volts>twilightZone && isRotorMovingClockwise()) {
             if (!cwLimitPoint) {
                 logger.info("entering twilight zone");
                 cwLimitPoint=true;
             }
         }
 
-        if (first) {
-            auto end = currentTimeMillis();
-            first=false;
-            long delta = end - start;
-            logger.debug("time to fill window<%d>: %ld", options.windowSize, delta);
-        } 
+
         float totalVolts=0;
-
-        auto e=slidingVolts.begin();
-        delete e[0];
-        slidingVolts.erase(e);
-
-        // if (++count%10==0 && isRotorReallyMoving()) {
-        // logger.info("slope=%.9f",calculateSlope(false,false,slopeVolts));
-        // }
         for (auto v:slidingVolts) totalVolts+=v->second;
 
-        volts=totalVolts/options.windowSize;
-        lastValue=volts;
+        float avgVolts=totalVolts/options.windowSize;
 
-
-        if (lastWindowValue == volts && !forceVoltageDisplay) {
-            usleep(options.catcherDelay);
-            continue;
-        }
-        lastWindowValue=volts;
 
         float rotorVcc;
         if (options.useAspectReferenceVoltageChannel) {
             rotorVcc = readVoltage(a2dHandle, options.aspectReferenceVoltageChannel, 0);
+            if (rotorVcc<vccFudge) {
+                logger.error("voltage reference is less then %f volts, should be ~%f volts", vccFudge, voltsMax);
+                continue;
+            }
         } else {
-            rotorVcc = options.rotorVcc;
-        }
-        if (rotorVcc<3) {
-            logger.error("voltage reference is less then 3 volts, should be ~5 volts");
-            continue;
+            rotorVcc     = options.rotorVcc;
         }
 
-        float  rotorVout = (rotorVcc*options.aspectVariableResistorOhms) / 
-                    (options.aspectFixedResistorOhms+options.aspectVariableResistorOhms);
-
-        float newDegree = 360.0 * (volts/rotorVout);
+        
+        float newDegree = getDegree(avgVolts);
 
         if (abs(newDegree)>360) {
             newDegree=360;
@@ -827,10 +781,10 @@ void voltageCatcher() {
         }
         rotorDegree=newDegree;
 
-        if (abs(newDegree-lastDegree)>wobbleLimit || forceVoltageDisplay) {
+        if (abs(newDegree-lastDegree)>options.wobbleLimit || forceVoltageDisplay) {
             forceVoltageDisplay=false;
             logger.debug("bs=%d ch[0]=%.3f newDegree=%.1f displayDegree=%.1f", 
-                      getBrakeStatus(),  volts, newDegree, translateRotor2Display(newDegree));
+                      getBrakeStatus(),  avgVolts, newDegree, translateRotor2Display(newDegree));
             lastDegree=newDegree;
         }
 
