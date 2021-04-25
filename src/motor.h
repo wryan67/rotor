@@ -9,3 +9,14 @@ void deactivateRotor();
 bool isRotorMovingClockwise();
 int  getBrakeStatus();
 void initPins();
+void externalPowerActivation(bool);
+
+struct powerType {
+  int automatic,  on, off;
+};
+
+extern int powerSetting;
+extern powerType power;
+
+
+ 

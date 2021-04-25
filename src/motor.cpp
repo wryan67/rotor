@@ -26,6 +26,13 @@ enum RotorPin {
     ExternalPower=25
 };
 
+powerType power = {
+    -1, 1, 0
+};
+
+int powerSetting = power.automatic;
+
+
 static Logger logger{"RotorMotor"};
 
 static int   brakeStatus=-1;
@@ -53,8 +60,7 @@ int initRotorMotor() {
     pinMode(ExternalPower,    OUTPUT);
 
     initPins();
-    digitalWrite(ExternalPower, RELAY_ACTIVATED);
-
+    externalPowerActivation(true);
     return 0;
 }
 
@@ -65,6 +71,10 @@ void initPins() {
     digitalWrite(ExternalPower, RELAY_DEACTIVATED);
 }
 
+
+void externalPowerActivation(bool enable) {
+    digitalWrite(ExternalPower, (enable)?RELAY_ACTIVATED:RELAY_DEACTIVATED);
+}
 
  bool isRotorMotorReady() {
      return digitalRead(isMotorReadyPin);
@@ -79,6 +89,10 @@ bool isRotorReallyMoving() {
 }
 
 void deactivateRotor() {
+    digitalWrite(ClockwisePin,  RELAY_DEACTIVATED);
+    digitalWrite(CCWPin,        RELAY_DEACTIVATED);
+    logger.debug("deactivating rotor motor");
+
     auto now = currentTimeMillis();
     long travelTime = now - startTime;
     if (startTime<0) {
@@ -90,10 +104,6 @@ void deactivateRotor() {
     if (travelTime<1000) {
         parkingDelay = 1000;
     }    
-
-    logger.debug("deactivating rotor motor");
-    digitalWrite(ClockwisePin,  RELAY_DEACTIVATED);
-    digitalWrite(CCWPin,        RELAY_DEACTIVATED);
 
     _isRotorReallyMoving=false;
 

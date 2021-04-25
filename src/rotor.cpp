@@ -132,6 +132,7 @@ bool hitLimitSwitch() {
         return false;
     }
 }
+
 static void moveRotorWorker(float degrees, float newDegree) {
 
     // logFile=fopen("/home/pi/travel.csv","w");
@@ -139,7 +140,8 @@ static void moveRotorWorker(float degrees, float newDegree) {
     parked=false;
     if (!activateRotor(degrees)) {
         logger.error("failed to start rotor motor");
-        return;
+//            externalPowerActivation(false);
+            return;
     }
     logger.info("moving %.0f degrees to %.1f", degrees, newDegree);
 
@@ -163,11 +165,13 @@ static void moveRotorWorker(float degrees, float newDegree) {
             usleep(250);  // 0.25 ms
         }
     }
+
     logger.info("stopping rotor");
     neopixel_setPixel(operationIndicator, brakingColor);
     neopixel_render();
 
     deactivateRotor();
+    
     if (logFile) fprintf(logFile,"parked\n");
     parked=true;
     float targetDeviation=rotorDegree-newDegree;
@@ -181,6 +185,7 @@ static void moveRotorWorker(float degrees, float newDegree) {
     neopixel_render();
 
     forceCompassRedraw=true;
+//    externalPowerActivation(false);
 
     if (logFile) {
         fclose(logFile);
@@ -191,16 +196,19 @@ static void moveRotorWorker(float degrees, float newDegree) {
 
 static void moveRotor(float degrees) {
     float currentDegree=rotorDegree;
+    if (isRotorMoving()) {
+        logger.error("rotor is already moving...");
+        return;
+    }
+
+    externalPowerActivation(true);
+    delay(100);
 
     if (!isRotorMotorReady()) {
         logger.error("the rotor motor reports 'not ready'.  Is the external turned power on?");
         return;
     }
 
-    if (isRotorMoving()) {
-        logger.error("rotor is already moving...");
-        return;
-    }
     auto newDegree=currentDegree+degrees;
     if (newDegree<0) {
         newDegree+=360;
@@ -437,7 +445,21 @@ static void moveTo(GtkWidget *widget, gpointer data) {
   logger.debug("directon=%d", newDirection);
 
   moveRotor(newDirection-rotorDegree);
+}
 
+static void setPowerSetting(GtkWidget *widget, gpointer data) {
+
+  int *powerType = (int*)data;
+
+  powerSetting = *powerType;
+  
+  if (powerSetting==power.on) {
+      externalPowerActivation(true);
+  } else if (powerSetting==power.automatic) {
+      if (!isRotorMoving()) {
+      externalPowerActivation(false);
+      }
+  }
 }
 
 static void drawCompass(bool newSurface) {
@@ -934,8 +956,12 @@ int main(int argc, char **argv) {
 
     setButton(builder, "seButton", "clicked", G_CALLBACK(moveTo), &directional.se);
     setButton(builder, "swButton", "clicked", G_CALLBACK(moveTo), &directional.sw);
-    setButton(builder, "nwButton", "clicked", G_CALLBACK(moveTo),  &directional.nw);
-    setButton(builder, "neButton", "clicked", G_CALLBACK(moveTo),  &directional.ne);
+    setButton(builder, "nwButton", "clicked", G_CALLBACK(moveTo), &directional.nw);
+    setButton(builder, "neButton", "clicked", G_CALLBACK(moveTo), &directional.ne);
+
+    setButton(builder, "externalPower-auto", "clicked", G_CALLBACK(setPowerSetting), &power.automatic);
+    setButton(builder, "externalPower-on",   "clicked", G_CALLBACK(setPowerSetting), &power.on);
+
 
     degreeInputBox = (GtkWidget *) gtk_builder_get_object (builder, "DegreeInputBox");
     drawingArea = (GtkWidget *) gtk_builder_get_object (builder, "CompassDrawingArea");

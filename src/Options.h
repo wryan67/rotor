@@ -20,7 +20,7 @@ public:
     int      aspectVariableResistorOhms     = 500;
     int      aspectFixedResistorOhms        = 100;
     int      limitSwitchPin                 = 0;
-    float    rotorVcc                       = 5.0;
+    float    rotorVcc                       = 15.0;
 
     int      catcherDelay                   = 100*1000;  // us
     u_int    windowSize                     = 20;
