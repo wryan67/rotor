@@ -23,7 +23,8 @@ enum RotorPin {
     ClockwisePin=27,
     BrakePin=28,
     CCWPin=29,
-    ExternalPower=25
+    ElectronicsPower=25,
+    RotorPower=24
 };
 
 powerType power = {
@@ -46,7 +47,8 @@ int initRotorMotor() {
     logger.info("initializing motor");
     logger.debug("GPIO WiringPi motor pins:");
     logger.debug("    isMotorReadyPin:  %2d", isMotorReadyPin);
-    logger.debug("    ExternalPower:    %2d", ExternalPower);
+    logger.debug("    ExternalPower:    %2d", ElectronicsPower);
+    logger.debug("    RotorPower:       %2d", RotorPower);
     logger.debug("    CW:               %2d", ClockwisePin);
     logger.debug("    CCW:              %2d", CCWPin);
     logger.debug("    BrakePin:         %2d", BrakePin);
@@ -57,7 +59,8 @@ int initRotorMotor() {
     pinMode(BrakePin,         OUTPUT);
     pinMode(ClockwisePin,     OUTPUT);
     pinMode(CCWPin,           OUTPUT);
-    pinMode(ExternalPower,    OUTPUT);
+    pinMode(ElectronicsPower, OUTPUT);
+    pinMode(RotorPower,       OUTPUT);
 
     initPins();
     externalPowerActivation(true);
@@ -65,15 +68,16 @@ int initRotorMotor() {
 }
 
 void initPins() {
-    digitalWrite(ClockwisePin,  RELAY_DEACTIVATED);
-    digitalWrite(CCWPin,        RELAY_DEACTIVATED);
-    digitalWrite(BrakePin,      RELAY_DEACTIVATED);
-    digitalWrite(ExternalPower, RELAY_DEACTIVATED);
+    digitalWrite(ClockwisePin,     RELAY_DEACTIVATED);
+    digitalWrite(CCWPin,           RELAY_DEACTIVATED);
+    digitalWrite(BrakePin,         RELAY_DEACTIVATED);
+    digitalWrite(ElectronicsPower, RELAY_DEACTIVATED);
+    digitalWrite(RotorPower,       RELAY_DEACTIVATED);
 }
 
 
 void externalPowerActivation(bool enable) {
-    digitalWrite(ExternalPower, (enable)?RELAY_ACTIVATED:RELAY_DEACTIVATED);
+    digitalWrite(ElectronicsPower, (enable)?RELAY_ACTIVATED:RELAY_DEACTIVATED);
 }
 
  bool isRotorMotorReady() {
@@ -112,6 +116,8 @@ void deactivateRotor() {
 
     logger.debug("parking brake engaged");
     digitalWrite(BrakePin,      RELAY_DEACTIVATED);
+    digitalWrite(RotorPower,    RELAY_DEACTIVATED);
+
     brakeStatus=RELAY_DEACTIVATED;
 
     _isRotorMoving.set(false);
@@ -146,6 +152,9 @@ bool activateRotor(float direction) {
 
     const char *vector;
     RotorPin motorPin;
+
+    digitalWrite(RotorPower, RELAY_ACTIVATED);
+    delay(500);
 
     if (direction>0) {
         motorPin=ClockwisePin;
