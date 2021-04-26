@@ -19,12 +19,13 @@ using namespace common::synchronized;
 
     
 enum RotorPin {
-    isMotorReadyPin=26,
-    ClockwisePin=27,
-    BrakePin=28,
-    CCWPin=29,
-    ElectronicsPower=25,
-    RotorPower=24
+    //                    WPi,    BCM,  HDR
+    isMotorReadyPin=       26, //  12,   32
+    ClockwisePin=          27, //  16,   36
+    BrakePin=              28, //  20,   38
+    CCWPin=                29, //  21,   40
+    ElectronicsPower=      25, //  26,   37
+    RotorPower=            24  //  29,   35
 };
 
 powerType power = {
