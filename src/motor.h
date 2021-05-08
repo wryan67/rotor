@@ -1,6 +1,5 @@
 
 int  initRotorMotor();
-bool isRotorMotorReady();
 bool isRotorMoving();
 bool isRotorReallyMoving();
 bool activateRotor(float direction);

@@ -203,10 +203,10 @@ static void moveRotor(float degrees) {
     externalPowerActivation(true);
     delay(100);
 
-    if (!isRotorMotorReady()) {
-        logger.error("the rotor motor reports 'not ready'.  Is the external turned power on?");
-        return;
-    }
+    // if (!isRotorMotorReady()) {
+    //     logger.error("the rotor motor reports 'not ready'.  Is the external turned power on?");
+    //     return;
+    // }
 
     auto newDegree=currentDegree+degrees;
     if (newDegree<0) {
@@ -679,7 +679,14 @@ void setButton(GtkBuilder *builder, const char*buttonId, char *action, GCallback
 }
 
 float getDegree(float volts) {
-    return 5.7849*volts*volts + 42.32*volts + 1.6645;
+    switch (options.aspectFixedResistorOhms) {
+        case 1000:    return  5.7849*volts*volts + 42.3200*volts + 1.6645;
+        case 1375:    return -0.0202*volts*volts +  0.6965*volts - 0.6665;
+        default:
+            fprintf(stderr,"voltage to degree equation not defined for r1=%d'n", 
+                            options.aspectFixedResistorOhms );
+        return 0;
+    }
 }
 
 
@@ -700,7 +707,7 @@ void voltageCatcher() {
 
     while (true) {
         auto now = currentTimeMillis();
-        float volts = readVoltage(a2dHandle, options.aspectVoltageChannel, 0);
+        float volts = readVoltage(a2dHandle, options.aspectVoltageChannel, options.gain);
 
         if (volts<0) {
             logger.error("volts read on channel %d is less than zero: %f", options.aspectVoltageChannel, volts);
@@ -761,7 +768,7 @@ void voltageCatcher() {
 
         float rotorVcc;
         if (options.useAspectReferenceVoltageChannel) {
-            rotorVcc = readVoltage(a2dHandle, options.aspectReferenceVoltageChannel, 0);
+            rotorVcc = readVoltage(a2dHandle, options.aspectReferenceVoltageChannel, options.gain);
             if (rotorVcc<vccFudge) {
                 logger.error("voltage reference is less then %f volts, should be ~%f volts", vccFudge, voltsMax);
                 continue;

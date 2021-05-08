@@ -1,15 +1,18 @@
 #!/bin/ksh
 set -a
 
-POWERSENSOR=26
-CW=27
-CCW=29
+POWERSENSOR=99
+OE=4
+POWER=26
+CW=29
+CCW=27
 BRAKE=28
 
 ACTIVATE=0
 DEACTIVATE=1
 
-for pin in $CW $CCW $BRAKE; do
+for pin in $POWER $CW $CCW $BRAKE $OE; do
+  gpio write $pin 1
   gpio mode $pin output
 done
 gpio mode $POWERSENSOR input
@@ -26,3 +29,4 @@ engageBrake() {
 releaseBrake() {
   gpio write $BRAKE 0
 }
+
