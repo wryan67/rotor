@@ -1,32 +1,55 @@
 #!/bin/ksh
 set -a
 
-POWERSENSOR=99
-OE=4
-POWER=26
-CW=29
-CCW=27
-BRAKE=28
+OE=3
+POWER=22
+CCW=23
+BRAKE=24
+CW=25
 
 ACTIVATE=0
 DEACTIVATE=1
 
-for pin in $POWER $CW $CCW $BRAKE $OE; do
-  gpio write $pin 1
-  gpio mode $pin output
-done
-gpio mode $POWERSENSOR input
+init() {
+  for pin in $POWER $CW $CCW $BRAKE $OE; do
+    gpio write $pin 1
+    gpio mode  $pin output
+  done
+}
+
+powerOn() {
+  gpio write $POWER  $ACTIVATE
+  sleep 0.250
+}
+powerOff() {
+  gpio write $POWER  $DEACTIVATE
+}
+
+moveCW() {
+  gpio write $CW $ACTIVATE
+}
+
+moveCCW() {
+  gpio write $CCW $ACTIVATE
+}
 
 stopMotors() {
-  gpio write $CW  $DEACTIVATE
-  gpio write $CCW $DEACTIVATE
+  gpio write $CW     $DEACTIVATE
+  gpio write $CCW    $DEACTIVATE
 }
 
 engageBrake() {
+  stopMotors
+  sleep 0.250
   gpio write $BRAKE 1
+  powerOff
 }
 
 releaseBrake() {
+  powerOn
   gpio write $BRAKE 0
+  sleep 0.250
 }
 
+
+init
