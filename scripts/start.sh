@@ -2,7 +2,7 @@
 set -a
 
 if [ "$1" != "boot" ];then
-  $HOME/bin/stop
+  $HOME/bin/stop.sh
 fi
 
 mkdir -p $HOME/logs
@@ -15,6 +15,6 @@ cd $HOME/bin
 
 # type "rotor -h" for help
 
-nohup sudo $HOME/bin/rotor -f -x 1000 -w 20 -s 100 $* > $HOME/logs/rotor.log 2>&1 &
+nohup sudo $HOME/bin/rotor -d -f -x 1000 -w 20 -s 100 $* > $HOME/logs/rotor.log 2>&1 &
 
-chown pi $HOME/logs/rotor.log
+chown `logname` $HOME/logs/rotor.log
