@@ -20,12 +20,11 @@ using namespace common::synchronized;
     
 enum RotorPin {
     //                    WPi,    BCM,  HDR
-    isMotorReadyPin=       26, //  12,   32
-    ClockwisePin=          27, //  16,   36
+    ClockwisePin=          29, //  21,   40
     BrakePin=              28, //  20,   38
-    CCWPin=                29, //  21,   40
-    ElectronicsPower=      25, //  26,   37
-    RotorPower=            24  //  29,   35
+    CCWPin=                27, //  16,   36
+    OutputEnable=           4, //  23,   16
+    RotorPower=            26  //  12,   32
 };
 
 powerType power = {
@@ -47,8 +46,7 @@ static float motorDirection=0;
 int initRotorMotor() {
     logger.info("initializing motor");
     logger.debug("GPIO WiringPi motor pins:");
-    logger.debug("    isMotorReadyPin:  %2d", isMotorReadyPin);
-    logger.debug("    ExternalPower:    %2d", ElectronicsPower);
+    logger.debug("    OutputEnable:     %2d", OutputEnable);
     logger.debug("    RotorPower:       %2d", RotorPower);
     logger.debug("    CW:               %2d", ClockwisePin);
     logger.debug("    CCW:              %2d", CCWPin);
@@ -56,11 +54,10 @@ int initRotorMotor() {
 
     initPins();
 
-    pinMode(isMotorReadyPin,  INPUT);
     pinMode(BrakePin,         OUTPUT);
     pinMode(ClockwisePin,     OUTPUT);
     pinMode(CCWPin,           OUTPUT);
-    pinMode(ElectronicsPower, OUTPUT);
+    pinMode(OutputEnable,     OUTPUT);
     pinMode(RotorPower,       OUTPUT);
 
     initPins();
@@ -72,18 +69,15 @@ void initPins() {
     digitalWrite(ClockwisePin,     RELAY_DEACTIVATED);
     digitalWrite(CCWPin,           RELAY_DEACTIVATED);
     digitalWrite(BrakePin,         RELAY_DEACTIVATED);
-    digitalWrite(ElectronicsPower, RELAY_DEACTIVATED);
+    digitalWrite(OutputEnable,     1);
     digitalWrite(RotorPower,       RELAY_DEACTIVATED);
 }
 
 
 void externalPowerActivation(bool enable) {
-    digitalWrite(ElectronicsPower, (enable)?RELAY_ACTIVATED:RELAY_DEACTIVATED);
+    digitalWrite(RotorPower, (enable)?RELAY_ACTIVATED:RELAY_DEACTIVATED);
 }
 
- bool isRotorMotorReady() {
-     return digitalRead(isMotorReadyPin);
- }
 
 bool isRotorMoving() {
     return _isRotorMoving.get();

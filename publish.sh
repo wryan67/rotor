@@ -1,13 +1,13 @@
 #!/bin/ksh
 
-ROTOR_PI=rotor
+ROTOR_PI=wryan@rotor2
 
 make
 [ $? != 0 ] && exit 2
 
 for FILE in bin/* gtk/*
 do 
-  scp $FILE pi@$ROTOR_PI:/home/pi/bin || exit $?
+  scp $FILE $ROTOR_PI:~/bin || exit $?
 done
 
 for FILE in fonts/*
