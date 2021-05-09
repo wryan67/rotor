@@ -184,9 +184,10 @@ static void moveRotorWorker(float degrees, float newDegree) {
         }
     }
 
-    logger.info("stopping rotor");
+    logger.info("stopping rotor indicator");
     neopixel_setPixel(operationIndicator, brakingColor);
     neopixel_render();
+    delay(1);
 
     deactivateRotor();
     
@@ -397,9 +398,8 @@ static void drawCompass(bool newSurface) {
       degree=360-degree;
   }
 
-  logger.info("drawCompas::window<%3d,%3d> margin<%3d,%3d> surface<%3d,%3d> r<%d>", 
-      windowWidth, windowHeight, marginLeft, marginTop, width, height, radius);
-
+//   logger.info("drawCompas::window<%3d,%3d> margin<%3d,%3d> surface<%3d,%3d> r<%d>", 
+//       windowWidth, windowHeight, marginLeft, marginTop, width, height, radius);
 
   cairo_set_source_rgb (cr, 1,1,1); // white
   cairo_arc(cr, x, y, radius, 0,2*M_PI);  
@@ -455,14 +455,9 @@ static void createDrawingSurface(GtkWidget *widget) {
   if (surface) {
     cairo_surface_destroy (surface);
   }
-//  auto windowWidth  = gtk_widget_get_allocated_width(widget);
-//  auto windowHeight = gtk_widget_get_allocated_height(widget);
 
-//   auto mTop  = (ignoreMargins)?0:gtk_widget_get_margin_top(widget);
-//   auto mLeft = (ignoreMargins)?0:gtk_widget_get_margin_left(widget);
-
-  auto width  = gtk_widget_get_allocated_width(widget);//+mLeft;
-  auto height = gtk_widget_get_allocated_height(widget);//+mTop;
+  auto width  = gtk_widget_get_allocated_width(widget);
+  auto height = gtk_widget_get_allocated_height(widget);
   
   auto window = gtk_widget_get_window(widget);
 
@@ -470,18 +465,8 @@ static void createDrawingSurface(GtkWidget *widget) {
   gtk_widget_set_margin_left(widget,  0);
 
 
-  
-//   if (width>height) {
-//     int margin = (width-height)/2.0+0.5;
-//     width=height;
-//     if (!ignoreMargins) gtk_widget_set_margin_left(widget, margin);
-//   } else if (height>width) {
-//     int margin = (height-width)/2.0+0.5;
-//     height=width;
-//     if (!ignoreMargins) gtk_widget_set_margin_top(widget, margin);
-//   }
 
- logger.info("createDrawingSurface <%3d, %3d>", width, height);
+//  logger.info("createDrawingSurface <%3d, %3d>", width, height);
 //  CAIRO_CONTENT_COLOR
   surface = gdk_window_create_similar_surface(window, CAIRO_CONTENT_COLOR_ALPHA, width, height);
 
@@ -707,6 +692,38 @@ void displayParameters() {
     }
 }
 
+void neopixel_setup() {
+    int ledType = WS2811_STRIP_RGB;
+    int ret=neopixel_init(ledType, WS2811_TARGET_FREQ, DMA, GPIO_PIN, led_count+10);
+
+    if (ret!=0) {
+        fprintf(stderr, "neopixel initialization failed: %s\n", neopixel_error(ret));
+        exit(5);
+    }
+
+    neopixel_setBrightness(32);
+
+    neopixel_setPixel(operationIndicator, stopColor);
+    neopixel_setPixel(operationIndicator+1, 0);
+    neopixel_render();
+
+    logger.info("stopped color: %6x", movingColor);
+    neopixel_setPixel(operationIndicator, movingColor);
+    neopixel_render();
+    delay(500);
+
+    logger.info("stopped color: %6x", brakingColor);
+    neopixel_setPixel(operationIndicator, brakingColor);
+    neopixel_render();
+    delay(500);
+
+    logger.info("stopped color: %6x", stopColor);
+    neopixel_setPixel(operationIndicator, stopColor);
+    neopixel_render();
+    delay(500);
+
+}
+
 int main(int argc, char **argv) {
     GtkBuilder *builder;
     GObject    *window;
@@ -737,24 +754,12 @@ int main(int argc, char **argv) {
     
     pinMode(options.LimitSwitch, INPUT);
     pullUpDnControl(options.LimitSwitch, PUD_UP);
-
+	a2dSetup();
 
     if (initRotorMotor()!=0) {
         logger.error("rotor motor initializaion failed");
 		exit(4);
     }
-    int ledType = WS2811_STRIP_RGB;
-
-    int ret=neopixel_init(ledType, WS2811_TARGET_FREQ, DMA, GPIO_PIN, led_count*2);
-
-    if (ret!=0) {
-        fprintf(stderr, "neopixel initialization failed: %s\n", neopixel_error(ret));
-        exit(5);
-    }
-
-    neopixel_setPixel(operationIndicator, stopColor);
-    neopixel_render();
-	a2dSetup();
 
 
     gtk_init (&argc, &argv);
@@ -780,9 +785,6 @@ int main(int argc, char **argv) {
 
     button = gtk_builder_get_object (builder, "MoveExactButton");
     g_signal_connect (button, "clicked", G_CALLBACK (moveExact), NULL);
-
-    // button = gtk_builder_get_object (builder, "Calibrate");
-    // g_signal_connect (button, "clicked", G_CALLBACK (calibrateActivated), NULL);
 
     button = gtk_builder_get_object (builder, "FastReverse");
     g_signal_connect (button, "clicked", G_CALLBACK (moveTenCounterClockwise), NULL);
@@ -826,6 +828,7 @@ int main(int argc, char **argv) {
     thread(voltageCatcher).detach();
     thread(renderCompass).detach();
     thread(initRotorDegrees).detach();
+    neopixel_setup();
 
     gtk_main();
 
