@@ -1,4 +1,5 @@
 ipAddr
-layout.ui
 rotor
-theme.css
+*.ui
+*.css
+*.old
