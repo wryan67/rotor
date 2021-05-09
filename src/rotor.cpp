@@ -55,7 +55,7 @@ GtkWidget *drawingArea=nullptr;
 float rotorSlope=0;
 float rotorDegree=0;
 bool  forceCompassRedraw=false;
-bool  forceVoltageDisplay=false;
+bool  forceVoltageDebugDisplay=false;
 
 mutex displayLock;
 mutex updateTextLock;
@@ -77,6 +77,12 @@ struct directionalType {
 };
 
 float translateRotor2Display(float degrees) {
+    // if (degrees>180) {
+    //     return degrees-180;
+    // } else {
+    //     return degrees+180;
+    // }
+
     float workingDegrees=degrees+180;
     if (workingDegrees>360) {
         workingDegrees-=360;
@@ -123,7 +129,7 @@ void updateTextBox(float degree, bool forceRedraw) {
 
 
 bool hitLimitSwitch() {
-    int limitSwitch = digitalRead(options.limitSwitchPin);
+    int limitSwitch = digitalRead(options.LimitSwitch);
     if (limitSwitch==1) {
         logger.debug("Limit switch triggered");
         return true;
@@ -155,12 +161,12 @@ static void moveRotorWorker(float degrees, float newDegree) {
         cwLimitPoint=false;
     }
 
-    if (degrees>0) { 
-        while (rotorDegree<newDegree && !hitLimitSwitch()) {
+    if (degrees>0) { // clockwise
+        while (rotorDegree<(newDegree-2) && !hitLimitSwitch()) {
             usleep(250);  // 0.25 ms
         }
-    } else {
-        while (rotorDegree>newDegree && !hitLimitSwitch()) {
+    } else {    // counter-clockwise
+        while (rotorDegree>(newDegree+2) && !hitLimitSwitch()) {
             usleep(250);  // 0.25 ms
         }
     }
@@ -175,11 +181,11 @@ static void moveRotorWorker(float degrees, float newDegree) {
     parked=true;
     float targetDeviation=rotorDegree-newDegree;
     if (debug) {
-        forceVoltageDisplay=true;
+        forceVoltageDebugDisplay=true;
         usleep(options.catcherDelay);
     }
-    logger.info("rotor parked; rotorDegree=%.1f; target deviation=%.1f", 
-                    rotorDegree, abs(targetDeviation));
+    logger.info("rotor parked; rotorDegree=%3.0f; target deviation=%.1f", 
+                    rotorDegree, targetDeviation);
     neopixel_setPixel(operationIndicator, stopColor);
     neopixel_render();
 
@@ -703,6 +709,7 @@ void voltageCatcher() {
     // float twilightZone = voltsMax * 0.95;
     // float vccFudge = voltsMax*0.99;
     float lastVolts=-1;
+    float lastDisplayVolts=-1;
     // uint32_t count=0;
 
     while (true) {
@@ -746,18 +753,22 @@ void voltageCatcher() {
         }
         rotorDegree=newDegree;
 
-        if (abs(newDegree-lastDegree)>options.wobbleLimit || forceVoltageDisplay) {
-            forceVoltageDisplay=false;
+        if (abs(newDegree-lastDegree)>options.wobbleLimit) {
+            forceVoltageDebugDisplay=true;
             lastDegree=newDegree;
         }
 
-        if (abs(volts-lastVolts)>0.005)
-            logger.debug("bs=%d ch[0]=%.3f i-degree=%.1f d-degree=%.1f gain=%s r1=%d", 
+
+        if (abs(volts-lastDisplayVolts)>0.010 || forceVoltageDebugDisplay) {
+            logger.debug("bs=%d ch[0]=%.3f i-degree=%.1f d-degree=%.0f gain=%d r1=%d", 
                       getBrakeStatus(),  volts, newDegree, translateRotor2Display(newDegree), 
                       options.gain, options.aspectFixedResistorOhms);
+            lastDisplayVolts=volts;
+            forceVoltageDebugDisplay=false;
+        }
 
         lastVolts=volts;
-        usleep(options.catcherDelay);
+        usleep(100);
     }
 }
 
@@ -776,7 +787,7 @@ void displayParameters() {
     logger.info("aspectReferenceVoltageChannel:     %d", options.aspectReferenceVoltageChannel);
     logger.info("aspectVariableResistorOhms:        %d", options.aspectVariableResistorOhms);
     logger.info("aspectFixedResistorOhms:           %d", options.aspectFixedResistorOhms);
-    logger.info("limitSwitchPin:                    %d", options.limitSwitchPin);
+    logger.info("limitSwitchPin:                    %d", options.LimitSwitch);
     logger.info("catchderDelay:                     %d ms", options.catcherDelay);
 
     if (!options.useAspectReferenceVoltageChannel) {
@@ -799,6 +810,11 @@ int main(int argc, char **argv) {
         fprintf(stderr,"sorry, this app must run as root; check setuid bit\n");
     }
 
+    FILE* theme = fopen ("theme.css", "r");
+    if (theme==nullptr) {
+        chdir("/home/pi/bin");
+    }
+
     FILE *slopeFile=fopen("/home/pi/slope.dat","r");
     if (slopeFile) {
         fscanf(slopeFile,"%f", &slope);
@@ -819,13 +835,12 @@ int main(int argc, char **argv) {
 		exit(2);
 	}
     
-    pinMode(options.limitSwitchPin, INPUT);
+    pinMode(options.LimitSwitch, INPUT);
 
     if (initRotorMotor()!=0) {
         logger.error("rotor motor initializaion failed");
 		exit(4);
     }
-
     int ledType = WS2811_STRIP_RGB;
 
     int ret=neopixel_init(ledType, WS2811_TARGET_FREQ, DMA, GPIO_PIN, led_count*2);
@@ -839,6 +854,19 @@ int main(int argc, char **argv) {
     neopixel_render();
 
 	a2dSetup();
+
+    float v3 = readVoltage(a2dHandle, options.v3channel, 0);
+
+    if (round(v3*10)!=33) {
+        for (int c=0;c<4;++c) {
+            float volts = readVoltage(a2dHandle, c, 0);
+            logger.info("channel<%d>=%f", c, volts);
+        }
+        logger.info("a2dHandle=%d; a2d_address=%02x", a2dHandle, ADS1115_ADDRESS);
+        logger.info("voltage on channel a%d=%f", options.v3channel, v3);
+        logger.error("ads1115 chip is not working; check external power?");
+		exit(4);
+    }
 
     gtk_init (&argc, &argv);
 

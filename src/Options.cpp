@@ -101,6 +101,7 @@ bool Options::commandLineOptions(int argc, char **argv) {
         CCWPin=getEnvInt("CCW");        
         OutputEnable=getEnvInt("OE");  
         RotorPower=getEnvInt("POWER");    
+        LimitSwitch=getEnvInt("LIMIT");    
     } catch (exception &e) {
         logger.error("enviornment is not setup; %s",e.what());
         return false;

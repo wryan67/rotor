@@ -18,15 +18,6 @@ using namespace std;
 using namespace common::utility;
 using namespace common::synchronized;
 
-    
-// enum RotorPin {
-//     //                    WPi,    BCM,  HDR
-//     options.ClockwisePin=          29, //  21,   40
-//     options.BrakePin=              28, //  20,   38
-//     options.CCWPin=                27, //  16,   36
-//     options.OutputEnable=           4, //  23,   16
-//     options.RotorPower=            26  //  12,   32
-// };
 
 powerType power = {
     -1, 1, 0
@@ -62,7 +53,7 @@ int initRotorMotor() {
     pinMode(options.RotorPower,       OUTPUT);
 
     initPins();
-    externalPowerActivation(true);
+
     return 0;
 }
 
@@ -70,8 +61,8 @@ void initPins() {
     digitalWrite(options.ClockwisePin,     RELAY_DEACTIVATED);
     digitalWrite(options.CCWPin,           RELAY_DEACTIVATED);
     digitalWrite(options.BrakePin,         RELAY_DEACTIVATED);
-    digitalWrite(options.OutputEnable,     1);
     digitalWrite(options.RotorPower,       RELAY_DEACTIVATED);
+    digitalWrite(options.OutputEnable,     1);
 }
 
 
