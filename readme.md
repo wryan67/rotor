@@ -34,7 +34,7 @@ System Libraries:
 
     $ ./rotor
     
-### Auto Star on Boot
+### Auto Start on Boot
 
 To start rotor on boot:
 
