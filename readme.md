@@ -7,6 +7,7 @@ System Libraries:
 
     $ sudo apt install libgtk-3-dev
     $ sudo apt install glade
+    $ sudo apt install xdotool
 
 ### GIT Hub software:
 
