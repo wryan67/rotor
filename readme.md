@@ -32,7 +32,9 @@ System Libraries:
     
 ### Run:
 
-    $ ./rotor
+Follow the instructions for autostart, then setup
+    $ . scripts/set
+    $ ./bin/rotor
     
 ### Auto Start on Boot
 
@@ -43,6 +45,10 @@ To start rotor on boot:
       $ mkdir /home/pi/bin
       $ cd scripts
       $ cp * /home/pi/bin
+      $ cd /home/pi/bin
+      $ sudo chown root rotor
+      $ sudo chmod g+w  rotor
+      $ sudo chmod u+s  rotor
       $ mkdir -p ~/.config/lxsession/LXDE-pi/
       $ ln /home/pi/bin/autostart ~/.config/lxsession/LXDE-pi/autostart
 
