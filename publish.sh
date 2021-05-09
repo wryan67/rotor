@@ -1,6 +1,7 @@
 #!/bin/ksh
 
-ROTOR_PI=pi@rotor2
+ROTOR_USER=pi
+ROTOR_PI=$ROTOR_USER@rotor2
 
 echo compile
 make
@@ -9,13 +10,13 @@ make
 echo copy binary
 for FILE in bin/* gtk/*
 do 
-  scp $FILE $ROTOR_PI:~/bin || exit $?
+  scp $FILE $ROTOR_PI:/home/$ROTOR_USER/bin || exit $?
 done
 
 echo set permissions
-ssh $ROTOR_PI sudo chmod u+s ~/bin/rotor
-ssh $ROTOR_PI sudo chmod g+w ~/bin/rotor 
-ssh $ROTOR_PI sudo chown root ~/bin/rotor
+ssh $ROTOR_PI sudo chmod g+w /home/$ROTOR_USER/bin/rotor 
+ssh $ROTOR_PI sudo chown root /home/$ROTOR_USER/bin/rotor
+ssh $ROTOR_PI sudo chmod u+s /home/$ROTOR_USER/bin/rotor
 
 echo copy fonts
 for FILE in fonts/*

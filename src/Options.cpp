@@ -1,5 +1,7 @@
 #include "Options.h"
 
+int getEnvInt(const char *variable);
+
 void Options::usage() {
 	fprintf(stderr, "usage: rotor [options]\n");
 	fprintf(stderr, "  Options:\n");
@@ -9,8 +11,7 @@ void Options::usage() {
 	fprintf(stderr, "  -c = aspect voltage channel (default=0)\n");
 	fprintf(stderr, "  -r = aspect reference voltage channel (default=1)\n");
 	fprintf(stderr, "  -v = aspect variable resistor ohms (default=500)\n");
-	fprintf(stderr, "  -x = aspect fixed resistor ohms (default=100)\n");
-    fprintf(stderr, "  -w = window size (default=20)\n");
+	fprintf(stderr, "  -x = aspect fixed resistor ohms (default=1375)\n");
     fprintf(stderr, "  -s = samples per second (default=10)\n");
     fprintf(stderr, "  -l  = limit switch input WiringPi GPIO pin");
 	exit(1);
@@ -71,10 +72,6 @@ bool Options::commandLineOptions(int argc, char **argv) {
             catcherDelay=(1000.0/sps)+.5;
             break;
 
-        case 'w':
-            sscanf(optarg, "%d", &windowSize);
-            break;
-
 		case '?':
 			if (optopt == 'm' || optopt == 't')
 				fprintf(stderr, "Option -%c requires an argument.\n", optopt);
@@ -97,8 +94,31 @@ bool Options::commandLineOptions(int argc, char **argv) {
     if (options.logLevel==ALL) {
         logger.info("debugging turned on");
     }
+
+    try {
+        ClockwisePin=getEnvInt("CW");
+        BrakePin=getEnvInt("BRAKE");      
+        CCWPin=getEnvInt("CCW");        
+        OutputEnable=getEnvInt("OE");  
+        RotorPower=getEnvInt("POWER");    
+    } catch (exception &e) {
+        logger.error("enviornment is not setup; %s",e.what());
+        return false;
+    }
+
 	return true;
 }
 
+int getEnvInt(const char *variable) {
+    char *var = getenv(variable);
+
+    if (var==nullptr) {
+        throw RuntimeException("cannot locate %s in the environment", variable);
+    }
+
+    int rs;
+    sscanf(var, "%d", &rs);
+    return rs;
+}
 
 

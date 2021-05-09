@@ -22,11 +22,15 @@ public:
     int      aspectFixedResistorOhms        = 1375;
     int      limitSwitchPin                 = 0;
     float    rotorVcc                       = 15.0;
-    float    wobbleLimit                    = 3;      // degrees
+    float    wobbleLimit                    = 2;      // degrees
 
+    int      ClockwisePin;  
+    int      BrakePin;  
+    int      CCWPin;      
+    int      OutputEnable;
+    int      RotorPower;    
 
-    int      catcherDelay                   = 1*1000;  // us
-    u_int    windowSize                     = 5;
+    int      catcherDelay                   = 2*1000;  // us
 
     bool     useAspectReferenceVoltageChannel=false;
 

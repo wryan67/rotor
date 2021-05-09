@@ -680,8 +680,8 @@ void setButton(GtkBuilder *builder, const char*buttonId, char *action, GCallback
 
 float getDegree(float volts) {
     switch (options.aspectFixedResistorOhms) {
-        case 1000:    return  5.7849*volts*volts + 42.3200*volts + 1.6645;
-        case 1375:    return -0.0202*volts*volts +  0.6965*volts - 0.6665;
+        case 1000:    return  5.7849*volts*volts + 42.320*volts + 1.6645;
+        case 1375:    return  6.9425*volts*volts + 61.667*volts + 1.0252;
         default:
             fprintf(stderr,"voltage to degree equation not defined for r1=%d'n", 
                             options.aspectFixedResistorOhms );
@@ -695,13 +695,13 @@ void voltageCatcher() {
   
     float lastDegree=999;
 
-    vector<pair<uint64_t,float>*> slidingVolts;
+    // vector<pair<uint64_t,float>*> slidingVolts;
 
     float voltsMax = (options.rotorVcc * options.aspectVariableResistorOhms) /
                      (options.aspectFixedResistorOhms + options.aspectVariableResistorOhms);
 
-    float twilightZone = voltsMax * 0.95;
-    float vccFudge = voltsMax*0.99;
+    // float twilightZone = voltsMax * 0.95;
+    // float vccFudge = voltsMax*0.99;
     float lastVolts=-1;
     // uint32_t count=0;
 
@@ -735,50 +735,8 @@ void voltageCatcher() {
                 continue;
             }
         }
-
-
-        auto point = new pair<uint64_t,float>();
-        point->first=now;
-        point->second=volts;
-        slidingVolts.push_back(point);
-
-        if (capturePoints) {
-            points.push_back(point);
-        } 
-        if (slidingVolts.size()>options.windowSize) {
-            auto e=slidingVolts.begin();
-            delete e[0];
-            slidingVolts.erase(e);
-        }
-
-
-        if (volts>twilightZone && isRotorMovingClockwise()) {
-            if (!cwLimitPoint) {
-                logger.info("entering twilight zone");
-                cwLimitPoint=true;
-            }
-        }
-
-
-        float totalVolts=0;
-        for (auto v:slidingVolts) totalVolts+=v->second;
-
-        float avgVolts=totalVolts/options.windowSize;
-
-
-        float rotorVcc;
-        if (options.useAspectReferenceVoltageChannel) {
-            rotorVcc = readVoltage(a2dHandle, options.aspectReferenceVoltageChannel, options.gain);
-            if (rotorVcc<vccFudge) {
-                logger.error("voltage reference is less then %f volts, should be ~%f volts", vccFudge, voltsMax);
-                continue;
-            }
-        } else {
-            rotorVcc     = options.rotorVcc;
-        }
-
         
-        float newDegree = getDegree(avgVolts);
+        float newDegree = getDegree(volts);
 
         if (abs(newDegree)>360) {
             newDegree=360;
@@ -790,11 +748,15 @@ void voltageCatcher() {
 
         if (abs(newDegree-lastDegree)>options.wobbleLimit || forceVoltageDisplay) {
             forceVoltageDisplay=false;
-            logger.debug("bs=%d ch[0]=%.3f newDegree=%.1f displayDegree=%.1f", 
-                      getBrakeStatus(),  avgVolts, newDegree, translateRotor2Display(newDegree));
             lastDegree=newDegree;
         }
 
+        if (abs(volts-lastVolts)>0.005)
+            logger.debug("bs=%d ch[0]=%.3f i-degree=%.1f d-degree=%.1f gain=%s r1=%d", 
+                      getBrakeStatus(),  volts, newDegree, translateRotor2Display(newDegree), 
+                      options.gain, options.aspectFixedResistorOhms);
+
+        lastVolts=volts;
         usleep(options.catcherDelay);
     }
 }
@@ -831,6 +793,11 @@ int main(int argc, char **argv) {
     GObject    *window;
     GObject    *button;
     GError     *error=nullptr;
+
+    int rs=setuid(0);
+    if (rs<0) {
+        fprintf(stderr,"sorry, this app must run as root; check setuid bit\n");
+    }
 
     FILE *slopeFile=fopen("/home/pi/slope.dat","r");
     if (slopeFile) {
