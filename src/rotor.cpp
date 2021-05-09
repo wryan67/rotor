@@ -108,6 +108,7 @@ void a2dSetup() {
 		fprintf(stderr, "opening ads1115 failed: %s\n", strerror(errno));
 		exit(3);
 	}
+
 }
 
 int textBoxWidgetUpdate(gpointer data) {
@@ -710,11 +711,19 @@ void voltageCatcher() {
     // float vccFudge = voltsMax*0.99;
     float lastVolts=-1;
     float lastDisplayVolts=-1;
+    long long lastDisplayTime=0;
     // uint32_t count=0;
+
+    float maxGain = getADS1115MaxGain(options.gain);
 
     while (true) {
         auto now = currentTimeMillis();
         float volts = readVoltage(a2dHandle, options.aspectVoltageChannel, options.gain);
+
+        if (volts>=maxGain && lastVolts<(maxGain/2)) {
+            logger.warn("volts >= maxGain<%f>; setting to zero", maxGain);
+            volts=0;
+        }
 
         if (volts<0) {
             logger.error("volts read on channel %d is less than zero: %f", options.aspectVoltageChannel, volts);
@@ -722,7 +731,7 @@ void voltageCatcher() {
         }
 
         if (volts>voltsMax) {
-            logger.error("volts read on channel %d is more than max allowed: actual=%f, allowed=%f", options.aspectVoltageChannel, volts, voltsMax);
+            logger.error("volts read on channel %d is more than max allowed: actual=%f, allowed=%f; maxGain=%f", options.aspectVoltageChannel, volts, voltsMax, maxGain);
             volts=voltsMax;
         }
 
@@ -760,11 +769,21 @@ void voltageCatcher() {
 
 
         if (abs(volts-lastDisplayVolts)>0.010 || forceVoltageDebugDisplay) {
-            logger.debug("bs=%d ch[0]=%.3f i-degree=%.1f d-degree=%.0f gain=%d r1=%d", 
-                      getBrakeStatus(),  volts, newDegree, translateRotor2Display(newDegree), 
-                      options.gain, options.aspectFixedResistorOhms);
-            lastDisplayVolts=volts;
-            forceVoltageDebugDisplay=false;
+            int limitSwitch = digitalRead(options.LimitSwitch);
+
+            long long now = currentTimeMillis();
+            long long elapsed = now - lastDisplayTime;
+
+            if (elapsed<500) {
+                //forceVoltageDebugDisplay=true;
+            } else {
+                logger.debug("bs=%d ls=%d ch[0]=%.3f i-degree=%.1f d-degree=%.0f gain=%d r1=%d", 
+                        getBrakeStatus(), limitSwitch,  volts, newDegree, translateRotor2Display(newDegree), 
+                        options.gain, options.aspectFixedResistorOhms);
+                lastDisplayVolts=volts;
+                lastDisplayTime=now;
+                forceVoltageDebugDisplay=false;
+            }
         }
 
         lastVolts=volts;
@@ -836,6 +855,8 @@ int main(int argc, char **argv) {
 	}
     
     pinMode(options.LimitSwitch, INPUT);
+    pullUpDnControl(options.LimitSwitch, PUD_UP);
+
 
     if (initRotorMotor()!=0) {
         logger.error("rotor motor initializaion failed");
