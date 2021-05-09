@@ -32,17 +32,23 @@ System Libraries:
     
 ### Run:
 
-    $ ./rotor
+Follow the instructions for autostart, then setup
+    $ . scripts/set
+    $ ./bin/rotor
     
-### LX Session
+### Auto Start on Boot
 
 To start rotor on boot:
 
-* Copy all files from the scripts folder to $HOME/bin, then setup lxsession autostart
+* Copy all files from the scripts folder (in this project) to $HOME/bin, then setup lxsession autostart using these commands:
 
-      $ mkdir /home/pi/bin
+      $ mkdir -p /home/pi/bin
       $ cd scripts
-      $ cp * /home/pi/bin
+      $ cp -p * /home/pi/bin
+      $ cd /home/pi/bin
+      $ sudo chown root rotor
+      $ sudo chmod g+w  rotor
+      $ sudo chmod u+s  rotor
       $ mkdir -p ~/.config/lxsession/LXDE-pi/
       $ ln /home/pi/bin/autostart ~/.config/lxsession/LXDE-pi/autostart
 
