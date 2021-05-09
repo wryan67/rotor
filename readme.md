@@ -42,7 +42,7 @@ To start rotor on boot:
 
 * Copy all files from the scripts folder (in this project) to $HOME/bin, then setup lxsession autostart using these commands:
 
-      $ mkdir /home/pi/bin
+      $ mkdir -p /home/pi/bin
       $ cd scripts
       $ cp * /home/pi/bin
       $ cd /home/pi/bin
