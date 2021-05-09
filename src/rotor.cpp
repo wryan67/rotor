@@ -370,18 +370,7 @@ static void drawCompass(bool newSurface) {
   width = windowWidth - marginLeft;
   height = windowHeight - marginTop;
 
-  // logger.info("drawCompas::window <%d,%d>", windowWidth, windowHeight);
-  // logger.info("drawCompas::margin <%d,%d>", marginLeft, marginTop);
 
-
-  gdouble x=width/2.0-1;
-  gdouble y=height/2.0-1;
-
-  int radius = x-2;
-  auto degree=rotorDegree+90;
-  if (degree<0) {
-      degree=360-degree;
-  }
 
   /* Paint to the surface, where we store our state */
   cr = cairo_create(surface);
@@ -397,31 +386,47 @@ static void drawCompass(bool newSurface) {
 //  cairo_set_source_rgb (cr, 246/255.0, 245/255.0, 244/255.0);
 //   cairo_paint(cr);
 
-  cairo_set_source_rgb (cr,  1,1,1);
-  cairo_arc(cr, x, y, radius, 0,2*M_PI);
+
+// center
+  gdouble x=width/2.0-1;
+  gdouble y=height/2.0-1;
+
+  int radius = (x<y)?x-3:y-3;
+  auto degree=rotorDegree+90;
+  if (degree<0) {
+      degree=360-degree;
+  }
+
+  logger.info("drawCompas::window<%3d,%3d> margin<%3d,%3d> surface<%3d,%3d> r<%d>", 
+      windowWidth, windowHeight, marginLeft, marginTop, width, height, radius);
+
+
+  cairo_set_source_rgb (cr, 1,1,1); // white
+  cairo_arc(cr, x, y, radius, 0,2*M_PI);  
   cairo_fill(cr);
 
-  cairo_set_source_rgb (cr, 0,0,0);
-
-  cairo_arc(cr, x, y, 3, 0,2*M_PI);
+  cairo_set_source_rgb (cr, 0,0,0);  // black
+  cairo_arc(cr, x, y, 3, 0,2*M_PI);  // center dot
   cairo_fill(cr);
 
-  cairo_arc(cr, x, y, x-2, 0,2*M_PI);
+  int ridge = (x<y)?x:y;
+
+  cairo_arc(cr, x, y, ridge-3, 0,2*M_PI); // outer ridge circle
   cairo_stroke(cr);
 
-  radius-=5;
+  radius-=(ridge*0.05);  // 5%
   double xPoint = radius * cos(degree * M_PI / 180.0);
   double yPoint = radius * sin(degree * M_PI / 180.0);
 
   double eXPoint = xPoint;
   double eYPoint = yPoint;
 
-  cairo_move_to(cr,x,y);
+  cairo_move_to(cr,x,y);  // center
   cairo_line_to(cr, x+eXPoint, y+eYPoint);
   cairo_close_path (cr);
   cairo_stroke(cr);
 
-  radius-=(8*(x/150));
+  radius-=ridge*0.1;  // - 1%
   degree-=3;
   xPoint = radius * cos(degree * M_PI / 180.0);
   yPoint = radius * sin(degree * M_PI / 180.0);
@@ -450,13 +455,15 @@ static void createDrawingSurface(GtkWidget *widget) {
   if (surface) {
     cairo_surface_destroy (surface);
   }
-//   auto windowWidth  = gtk_widget_get_allocated_width(widget);
-//   auto windowHeight = gtk_widget_get_allocated_height(widget);
+//  auto windowWidth  = gtk_widget_get_allocated_width(widget);
+//  auto windowHeight = gtk_widget_get_allocated_height(widget);
 
-  auto mTop  = (ignoreMargins)?0:gtk_widget_get_margin_top(widget);
-  auto mLeft = (ignoreMargins)?0:gtk_widget_get_margin_left(widget);
-  auto width  = gtk_widget_get_allocated_width(widget)+mLeft;
-  auto height = gtk_widget_get_allocated_height(widget)+mTop;
+//   auto mTop  = (ignoreMargins)?0:gtk_widget_get_margin_top(widget);
+//   auto mLeft = (ignoreMargins)?0:gtk_widget_get_margin_left(widget);
+
+  auto width  = gtk_widget_get_allocated_width(widget);//+mLeft;
+  auto height = gtk_widget_get_allocated_height(widget);//+mTop;
+  
   auto window = gtk_widget_get_window(widget);
 
   gtk_widget_set_margin_top(widget, 0);
@@ -464,17 +471,17 @@ static void createDrawingSurface(GtkWidget *widget) {
 
 
   
-  if (width>height) {
-    int margin = (width-height)/2.0+0.5;
-    width=height;
-    if (!ignoreMargins) gtk_widget_set_margin_left(widget, margin);
-  } else if (height>width) {
-    int margin = (height-width)/2.0+0.5;
-    height=width;
-    if (!ignoreMargins) gtk_widget_set_margin_top(widget, margin);
-  }
+//   if (width>height) {
+//     int margin = (width-height)/2.0+0.5;
+//     width=height;
+//     if (!ignoreMargins) gtk_widget_set_margin_left(widget, margin);
+//   } else if (height>width) {
+//     int margin = (height-width)/2.0+0.5;
+//     height=width;
+//     if (!ignoreMargins) gtk_widget_set_margin_top(widget, margin);
+//   }
 
-
+ logger.info("createDrawingSurface <%3d, %3d>", width, height);
 //  CAIRO_CONTENT_COLOR
   surface = gdk_window_create_similar_surface(window, CAIRO_CONTENT_COLOR_ALPHA, width, height);
 
