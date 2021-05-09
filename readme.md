@@ -44,7 +44,7 @@ To start rotor on boot:
 
       $ mkdir -p /home/pi/bin
       $ cd scripts
-      $ cp * /home/pi/bin
+      $ cp -p * /home/pi/bin
       $ cd /home/pi/bin
       $ sudo chown root rotor
       $ sudo chmod g+w  rotor
