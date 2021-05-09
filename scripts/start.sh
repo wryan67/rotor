@@ -17,6 +17,8 @@ if [ "$DISPLAY" = "" ];then
   DISPLAY=":0"
 fi
 
+xdotool mousemove `fbset -s | sed -ne 's/^mode "\([0-9]*\)x\([0-9]*\)".*/\1 \2/p'`
+
 cd $HOME/bin
 
 # type "rotor -h" for help
