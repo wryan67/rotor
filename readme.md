@@ -7,8 +7,11 @@ System Libraries:
 
     $ sudo apt install libgtk-3-dev
     $ sudo apt install glade
+    $ sudo apt install xdotool
 
 ### GIT Hub software:
+
+Pleaase read the installation instructions carefully on each github project.  They're all similar, but non necessarially the same. 
 
 * ADS1115 Library - https://github.com/wryan67/ads1115_rpi_lib    
 
