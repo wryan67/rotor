@@ -6,15 +6,23 @@ POWER=22
 CCW=23
 BRAKE=24
 CW=25
+LIMIT=21
 
 ACTIVATE=0
 DEACTIVATE=1
+
+alias start='start.sh'
+alias stop='stop.sh'
+alias restart='restart.sh'
+alias move='move.sh'
+alias taillog='taillog.sh'
 
 init() {
   for pin in $POWER $CW $CCW $BRAKE $OE; do
     gpio write $pin 1
     gpio mode  $pin output
   done
+  gpio mode $LIMIT input
 }
 
 powerOn() {

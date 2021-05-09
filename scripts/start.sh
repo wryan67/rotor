@@ -7,6 +7,8 @@ RESISTOR=1375
 
 if [ "$1" != "boot" ];then
   $HOME/bin/stop.sh
+else
+  FULLSCREEN="-f"
 fi
 
 mkdir -p $HOME/logs
@@ -22,6 +24,6 @@ cd $HOME/bin
 echo CW=$CW
 
 set -x
-nohup $HOME/bin/rotor -d -f -x $RESISTOR  $* > $HOME/logs/rotor.log 2>&1 &
+nohup $HOME/bin/rotor -d -x $RESISTOR $FULLSCREEN  $* > $HOME/logs/rotor.log 2>&1 &
 
 chown `logname` $HOME/logs/rotor.log
