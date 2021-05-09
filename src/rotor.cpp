@@ -109,6 +109,20 @@ void a2dSetup() {
 		exit(3);
 	}
 
+
+    float v3 = readVoltage(a2dHandle, options.v3channel, 0);
+
+    if (round(v3*10)!=33) {
+        for (int c=0;c<4;++c) {
+            float volts = readVoltage(a2dHandle, c, 0);
+            logger.info("channel<%d>=%f", c, volts);
+        }
+        logger.info("a2dHandle=%d; a2d_address=%02x", a2dHandle, ADS1115_ADDRESS);
+        logger.info("voltage on channel a%d=%f", options.v3channel, v3);
+        logger.error("ads1115 chip is not working; check external power?");
+		exit(4);
+    }
+
 }
 
 int textBoxWidgetUpdate(gpointer data) {
@@ -873,21 +887,8 @@ int main(int argc, char **argv) {
 
     neopixel_setPixel(operationIndicator, stopColor);
     neopixel_render();
-
 	a2dSetup();
 
-    float v3 = readVoltage(a2dHandle, options.v3channel, 0);
-
-    if (round(v3*10)!=33) {
-        for (int c=0;c<4;++c) {
-            float volts = readVoltage(a2dHandle, c, 0);
-            logger.info("channel<%d>=%f", c, volts);
-        }
-        logger.info("a2dHandle=%d; a2d_address=%02x", a2dHandle, ADS1115_ADDRESS);
-        logger.info("voltage on channel a%d=%f", options.v3channel, v3);
-        logger.error("ads1115 chip is not working; check external power?");
-		exit(4);
-    }
 
     gtk_init (&argc, &argv);
 
