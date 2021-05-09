@@ -33,7 +33,6 @@ FILE *logFile=nullptr;
 
 vector<pair<uint64_t, float>*> points;
 bool capturePoints=false;
-float slope;
 
 #define TARGET_FREQ             WS2811_TARGET_FREQ
 #define GPIO_PIN                18   // BCM numbering system
@@ -52,7 +51,6 @@ int  brakingColor = 0xffff00;
 Logger     logger("main");
 GtkWidget *drawingArea=nullptr;
 
-float rotorSlope=0;
 float rotorDegree=0;
 bool  forceCompassRedraw=false;
 bool  forceVoltageDebugDisplay=false;
@@ -77,17 +75,17 @@ struct directionalType {
 };
 
 float translateRotor2Display(float degrees) {
-    // if (degrees>180) {
-    //     return degrees-180;
-    // } else {
-    //     return degrees+180;
-    // }
+    if (degrees>180) {
+        return degrees-180;
+    } else {
+        return degrees+180;
+    }
 
-    float workingDegrees=degrees+180;
-    if (workingDegrees>360) {
-        workingDegrees-=360;
-    }    
-    return workingDegrees;
+    // float workingDegrees=degrees+180;
+    // if (workingDegrees>360) {
+    //     workingDegrees-=360;
+    // }    
+    // return workingDegrees;
 }
 
 float translateDisplay2Rotor(float degrees) {
@@ -319,133 +317,8 @@ static void moveExact(GtkWidget *widget, gpointer data) {
   updateTextBox(translateRotor2Display(rotorDegree), false);
 
 }
-/*
-static float calculateSlope(bool saveData, bool debug, 
-                            vector<pair<uint64_t, float>*> &dataPoints) {
-
-    FILE *slopeFile=nullptr;
-    FILE *dataFile=nullptr;
-    if (saveData) {
-        dataFile=fopen("/home/pi/slope.csv","w");
-        slopeFile=fopen("/home/pi/slope.dat","w");
-    }
-
-    uint64_t start = dataPoints[0]->first;
-    float sumX=0;
-    float sumY=0;
-    for (auto point: dataPoints) {
-        sumX+=point->first-start;
-        sumY+=point->second;
-    }    
-    float avgX=sumX/dataPoints.size();
-    float avgY=sumY/dataPoints.size();
-
-    float sumXY=0;
-    float sumXX=0;
-
-    for (auto point: dataPoints) {
-        auto x=point->first-start;
-        auto y=point->second;
-        if (saveData) fprintf(dataFile,"%lld,%.9f\n", x, y);
-
-        float c1=x-avgX;
-        float c2=y-avgY;
-
-        sumXY+=(c1*c2);
-        sumXX+=(c1*c1);
-
-        if (debug) {
-            fprintf(stderr,"%lld,%.9f,%f,%f\n", x, y, c1, c2);
-        }
-    }
-    
-
-    float slope = sumXY/sumXX;
-    if (debug) {
-        fprintf(stderr,"avgx=%f avgy=%f\n",avgX,avgY);
-        fprintf(stderr,"sumXY=%f sumXX=%f\n",sumXY,sumXX);
-        fprintf(stderr,"slope=%f\n",slope);
-    }
-
-    if (saveData) {
-        fprintf(slopeFile,"%.9f", slope);
-        fclose(slopeFile);
-        fclose(dataFile);
-    }
-
-    return slope;
-}
 
 
-static void calibrate() {
-
-    logger.info("calibration started");
-    moveRotor(-rotorDegree);
-    delay(250);
-
-    while (isRotorMoving()) {
-        delay(500);
-    }
-    delay(1000);
-
-    capturePoints=true;    
-    moveRotor(180);
-    delay(500);
-
-    while (isRotorMoving()) {
-        delay(250);
-    }
-    capturePoints=false;
-  
-    if (points.size()<100) {
-        logger.error("not enough data collected, calibration aborted");
-        return;
-    }
-
-    auto start   = points[0]->first;
-    auto end     = points[points.size()-1]->first;
-    auto elapsed = end - start;
-
-    if (elapsed<20000) {
-        logger.error("elapsed time is less than 20 seconds, calibration aborted");
-        return;
-    }
-
-    vector<pair<uint64_t, float>*> savePoints;
-
-    for (auto point: points) {
-        auto x=point->first;
-        if (x<(start+1000)) {
-            delete point;
-            continue;
-        }
-        if (x>(end-5000)) {
-            delete point;
-            continue;
-        }
-        savePoints.push_back(point);
-    }
-
-    logger.info("calculating slope... pionts=%d",savePoints.size());
-
-    auto slope=calculateSlope(true, false, savePoints);
-    logger.info("slope=%.9f",slope);
-    logger.info("calibration complete");
-
-    for (auto point:savePoints) {
-        delete point;
-    }   points.clear();
-
-}
-
-static void calibrateActivated(GtkWidget *widget, gpointer data) {
-    thread(calibrate).detach();
-}
-*/
-
-// static void moveOneClockwise(GtkWidget *widget, gpointer data) {
-//   moveRotor(wobbleLimit);
-// }
 static void moveTenCounterClockwise(GtkWidget *widget, gpointer data) {
   moveRotor(-10);
 }
@@ -453,11 +326,6 @@ static void moveTenClockwise(GtkWidget *widget, gpointer data) {
   moveRotor(10);
 }
 
-// static void redraw(GtkWidget *widget, gpointer data) {
-//       gtk_widget_set_margin_top(widget, 0);
-//   gtk_widget_set_margin_left(widget,  0);
-//     createDrawingSurface(drawingArea);
-// }
 
 static void moveTo(GtkWidget *widget, gpointer data) {
   int *direction = (int*)data;
@@ -846,14 +714,6 @@ int main(int argc, char **argv) {
     FILE* theme = fopen ("theme.css", "r");
     if (theme==nullptr) {
         chdir("/home/pi/bin");
-    }
-
-    FILE *slopeFile=fopen("/home/pi/slope.dat","r");
-    if (slopeFile) {
-        fscanf(slopeFile,"%f", &slope);
-        logger.info("slope=%.9f",slope);
-    } else {
-        logger.info("calibration required");
     }
 
 	if (!options.commandLineOptions(argc, argv)) {
