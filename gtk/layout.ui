@@ -244,15 +244,128 @@
                 <property name="vexpand">True</property>
                 <property name="yalign">1</property>
                 <child>
-                  <object class="GtkAccelLabel" id="TimeWindow">
+                  <object class="GtkBox" id="TimeWindow">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <attributes>
-                      <attribute name="font-desc" value="DejaVu Sans Mono 10"/>
-                    </attributes>
-                    <style>
-                      <class name="TimeWindowCSS"/>
-                    </style>
+                    <property name="orientation">vertical</property>
+                    <child>
+                      <object class="GtkAccelLabel" id="utc-label">
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">UTC</property>
+                        <attributes>
+                          <attribute name="font-desc" value="Quicksand Light, Bold 18"/>
+                        </attributes>
+                        <style>
+                          <class name="TimeWindowCSS"/>
+                        </style>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">0</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkAccelLabel" id="utc-time">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">utc-time</property>
+                        <attributes>
+                          <attribute name="font-desc" value="DejaVu Sans Mono 24"/>
+                        </attributes>
+                        <style>
+                          <class name="TimeWindowCSS"/>
+                        </style>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">1</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkAccelLabel" id="utc-date">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">utc-date</property>
+                        <attributes>
+                          <attribute name="font-desc" value="Quicksand Light, Bold 18"/>
+                        </attributes>
+                        <style>
+                          <class name="TimeWindowCSS"/>
+                        </style>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">2</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkLabel" id="time-separator">
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">────────────────</property>
+                        <attributes>
+                          <attribute name="font-desc" value="DejaVu Sans Mono 10"/>
+                        </attributes>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">3</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkAccelLabel" id="local-label">
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Local</property>
+                        <attributes>
+                          <attribute name="font-desc" value="Quicksand Light, Bold 18"/>
+                        </attributes>
+                        <style>
+                          <class name="TimeWindowCSS"/>
+                        </style>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">4</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkAccelLabel" id="local-time">
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">local-time</property>
+                        <attributes>
+                          <attribute name="font-desc" value="DejaVu Sans Mono 24"/>
+                        </attributes>
+                        <style>
+                          <class name="TimeWindowCSS"/>
+                        </style>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">5</property>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkAccelLabel" id="local-date">
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">local-date</property>
+                        <attributes>
+                          <attribute name="font-desc" value="Quicksand Light, Bold 18"/>
+                        </attributes>
+                        <style>
+                          <class name="TimeWindowCSS"/>
+                        </style>
+                      </object>
+                      <packing>
+                        <property name="expand">False</property>
+                        <property name="fill">True</property>
+                        <property name="position">6</property>
+                      </packing>
+                    </child>
                   </object>
                 </child>
               </object>

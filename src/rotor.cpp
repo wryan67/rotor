@@ -54,7 +54,26 @@ int  brakingColor = 0xffff00;
 
 Logger     logger("main");
 GtkWidget *drawingArea=nullptr;
+
 GtkWidget *timeWindow=nullptr;
+
+GtkLabel  *utcLabel=nullptr;
+GtkLabel  *utcTime=nullptr;
+GtkLabel  *utcDate=nullptr;
+
+char       utcTimeBuffer[512];
+char       utcDateBuffer[512];
+
+GtkLabel  *timeSeparator=nullptr;
+
+GtkLabel  *localLabel=nullptr;
+GtkLabel  *localTime=nullptr;
+GtkLabel  *localDate=nullptr;
+
+char       localTimeBuffer[512];
+char       localDateBuffer[512];
+
+
 
 float rotorDegree=0;
 bool  forceCompassRedraw=false;
@@ -129,7 +148,14 @@ void a2dSetup() {
 }
 
 int textBoxWidgetUpdate(gpointer data) {
-    gtk_entry_set_text(GTK_ENTRY(degreeInputBox),degreeTextBox);
+    gtk_entry_set_text(GTK_ENTRY(degreeInputBox), degreeTextBox);
+
+    gtk_label_set_text(utcTime, utcTimeBuffer);
+    gtk_label_set_text(utcDate, utcDateBuffer);
+    
+    gtk_label_set_text(localTime, localTimeBuffer);
+    gtk_label_set_text(localDate, localDateBuffer);
+
     updateTextLock.unlock();
     return 0;
 }
@@ -546,36 +572,47 @@ float getDegree(float volts) {
     }
 }
 
+int screenBreakpoint=320;
+
 void timeUpdate() { 
-  char timeBuffer[4096];
-  char tmpstr[512];
+  // old: 480x320
+  // new: 800x480
+
+  GdkRectangle workarea = {0};
+  gdk_monitor_get_workarea(
+    gdk_display_get_primary_monitor(gdk_display_get_default()),
+    &workarea);
+
+  if (workarea.height>screenBreakpoint) {
+    gtk_widget_set_visible((GtkWidget*)utcLabel,       true);
+    gtk_widget_set_visible((GtkWidget*)timeSeparator,  true);
+    gtk_widget_set_visible((GtkWidget*)localLabel,     true);
+    gtk_widget_set_visible((GtkWidget*)localTime,      true);
+    gtk_widget_set_visible((GtkWidget*)localDate,      true);
+  }
 
   while(true) {
-    displayLock.lock();
+    
+    logger.debug("screen dimensiopns: <%d,%d>", workarea.width, workarea.height);
 
-    int height  = gtk_widget_get_allocated_height(timeWindow);
 
-    // logger.debug("time window height: %d",height);
-
-    char   timestamp[24];
     struct timeval currentTime;
 
     gettimeofday(&currentTime, nullptr);
-    strftime(timestamp, sizeof(timestamp), "%H:%M:%S", gmtime(&currentTime.tv_sec));
-    sprintf(timeBuffer,"UTC:   %s", timestamp);
+    strftime(utcTimeBuffer, sizeof(utcTimeBuffer), "%H:%M:%S", gmtime(&currentTime.tv_sec));
+    strftime(utcDateBuffer, sizeof(utcDateBuffer), "%Y/%m/%d", gmtime(&currentTime.tv_sec));
 
-    if (height>25) {
-      strftime(timestamp, sizeof(timestamp), "%H:%M:%S", localtime(&currentTime.tv_sec));
-      sprintf(tmpstr,  "\nLocal: %s", timestamp);
-      strcat(timeBuffer,tmpstr);
+
+
+
+    if (workarea.height>screenBreakpoint) {
+      strftime(localTimeBuffer, sizeof(localTimeBuffer), "%H:%M:%S", localtime(&currentTime.tv_sec));
+      strftime(localDateBuffer, sizeof(localDateBuffer), "%Y/%m/%d", localtime(&currentTime.tv_sec));
     }
 
-
-    gtk_label_set_text((GtkLabel*)timeWindow, timeBuffer);
-
-    gtk_widget_queue_draw(timeWindow);
-    gtk_widget_show(timeWindow);
-    displayLock.unlock();
+    updateTextLock.lock();
+    g_idle_add(textBoxWidgetUpdate, nullptr);
+    
     sleep(1);
   }
 }
@@ -733,6 +770,32 @@ void neopixel_setup() {
 
 }
 
+void initTime(GtkBuilder *builder) {
+    timeWindow = (GtkWidget*) gtk_builder_get_object (builder, "TimeWindow");
+
+    utcLabel  = (GtkLabel*) gtk_builder_get_object (builder, "utc-label");
+    utcTime   = (GtkLabel*) gtk_builder_get_object (builder, "utc-time");
+    utcDate   = (GtkLabel*) gtk_builder_get_object (builder, "utc-date");
+
+    timeSeparator = (GtkLabel*) gtk_builder_get_object (builder, "time-separator");
+
+    localLabel  = (GtkLabel*) gtk_builder_get_object (builder, "local-label");
+    localTime   = (GtkLabel*) gtk_builder_get_object (builder, "local-time");
+    localDate   = (GtkLabel*) gtk_builder_get_object (builder, "local-date");
+
+/*
+    gtk_label_set_text(utcLabel,      nullptr);
+    gtk_label_set_text(utcTime,       nullptr);
+    gtk_label_set_text(utcDate,       nullptr);
+    gtk_label_set_text(timeSeparator, nullptr);
+    gtk_label_set_text(localLabel,    nullptr);
+    gtk_label_set_text(localTime,     nullptr);
+    gtk_label_set_text(localDate,     nullptr);
+*/
+
+
+}
+
 int main(int argc, char **argv) {
     GtkBuilder *builder;
     GObject    *window;
@@ -763,7 +826,7 @@ int main(int argc, char **argv) {
     
     pinMode(options.LimitSwitch, INPUT);
     pullUpDnControl(options.LimitSwitch, PUD_UP);
-	a2dSetup();
+  	a2dSetup();
 
     if (initRotorMotor()!=0) {
         logger.error("rotor motor initializaion failed");
@@ -819,8 +882,9 @@ int main(int argc, char **argv) {
 
     degreeInputBox = (GtkWidget *) gtk_builder_get_object (builder, "DegreeInputBox");
     drawingArea = (GtkWidget *) gtk_builder_get_object (builder, "CompassDrawingArea");
-    
-    timeWindow = (GtkWidget *) gtk_builder_get_object (builder, "TimeWindow");
+
+    initTime(builder);
+
 
 
     createDrawingSurface(drawingArea);
