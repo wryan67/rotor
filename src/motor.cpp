@@ -66,11 +66,6 @@ void initPins() {
 }
 
 
-void externalPowerActivation(bool enable) {
-    digitalWrite(options.RotorPower, (enable)?RELAY_ACTIVATED:RELAY_DEACTIVATED);
-}
-
-
 bool isRotorMoving() {
     return _isRotorMoving.get();
 }

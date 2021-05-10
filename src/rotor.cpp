@@ -153,12 +153,9 @@ bool hitLimitSwitch() {
 
 static void moveRotorWorker(float degrees, float newDegree) {
 
-    // logFile=fopen("/home/pi/travel.csv","w");
-    
     parked=false;
     if (!activateRotor(degrees)) {
         logger.error("failed to start rotor motor");
-//            externalPowerActivation(false);
             return;
     }
     logger.info("moving %.0f degrees to %.1f", degrees, newDegree);
@@ -204,7 +201,6 @@ static void moveRotorWorker(float degrees, float newDegree) {
     neopixel_render();
 
     forceCompassRedraw=true;
-//    externalPowerActivation(false);
 
     if (logFile) {
         fclose(logFile);
@@ -219,9 +215,6 @@ static void moveRotor(float degrees) {
         logger.error("rotor is already moving...");
         return;
     }
-
-    externalPowerActivation(true);
-    delay(100);
 
     // if (!isRotorMotorReady()) {
     //     logger.error("the rotor motor reports 'not ready'.  Is the external turned power on?");
@@ -241,7 +234,7 @@ static void moveRotor(float degrees) {
         logger.info("movement degree is too small.  doing nothing");
         return;
     }
-
+    
     thread(moveRotorWorker,degrees,newDegree).detach();
 }
 
@@ -336,20 +329,6 @@ static void moveTo(GtkWidget *widget, gpointer data) {
   moveRotor(newDirection-rotorDegree);
 }
 
-static void setPowerSetting(GtkWidget *widget, gpointer data) {
-
-  int *powerType = (int*)data;
-
-  powerSetting = *powerType;
-  
-  if (powerSetting==power.on) {
-      externalPowerActivation(true);
-  } else if (powerSetting==power.automatic) {
-      if (!isRotorMoving()) {
-      externalPowerActivation(false);
-      }
-  }
-}
 
 static void drawCompass(bool newSurface) {
 //   if (!newSurface) {
@@ -806,8 +785,6 @@ int main(int argc, char **argv) {
     setButton(builder, "nwButton", "clicked", G_CALLBACK(moveTo), &directional.nw);
     setButton(builder, "neButton", "clicked", G_CALLBACK(moveTo), &directional.ne);
 
-    setButton(builder, "externalPower-auto", "clicked", G_CALLBACK(setPowerSetting), &power.automatic);
-    setButton(builder, "externalPower-on",   "clicked", G_CALLBACK(setPowerSetting), &power.on);
 
 
     degreeInputBox = (GtkWidget *) gtk_builder_get_object (builder, "DegreeInputBox");
