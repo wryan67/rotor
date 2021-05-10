@@ -9,6 +9,10 @@
 #include <neopixel.h>  
 #include <atomic>
 
+#include <time.h>
+#include <sys/time.h>
+
+
 #include "motor.h"
 #include "Options.h"
 
@@ -50,6 +54,7 @@ int  brakingColor = 0xffff00;
 
 Logger     logger("main");
 GtkWidget *drawingArea=nullptr;
+GtkWidget *timeWindow=nullptr;
 
 float rotorDegree=0;
 bool  forceCompassRedraw=false;
@@ -331,15 +336,9 @@ static void moveTo(GtkWidget *widget, gpointer data) {
 
 
 static void drawCompass(bool newSurface) {
-//   if (!newSurface) {
-//     displayLock.lock();
-//   }
-    
+   
   cairo_t *cr;
   guint width, height;
-  // GdkRGBA color;
-  // GtkStyleContext *context;
-  // context = gtk_widget_get_style_context (drawingArea);
 
   int windowWidth  = gtk_widget_get_allocated_width(drawingArea);
   int windowHeight = gtk_widget_get_allocated_height (drawingArea);
@@ -472,9 +471,7 @@ configure_event_cb (GtkWidget         *widget,
 
 static gboolean draw_cb(GtkWidget *widget, cairo_t *cr, gpointer data)
 {
-//   displayLock.lock();
   drawCompass(true);
-//   displayLock.unlock();
 
   cairo_set_source_surface (cr, surface, 0, 0);
   cairo_paint_with_alpha (cr, 1);
@@ -549,6 +546,39 @@ float getDegree(float volts) {
     }
 }
 
+void timeUpdate() { 
+  char timeBuffer[4096];
+  char tmpstr[512];
+
+  while(true) {
+    displayLock.lock();
+
+    int height  = gtk_widget_get_allocated_height(timeWindow);
+
+    // logger.debug("time window height: %d",height);
+
+    char   timestamp[24];
+    struct timeval currentTime;
+
+    gettimeofday(&currentTime, nullptr);
+    strftime(timestamp, sizeof(timestamp), "%H:%M:%S", gmtime(&currentTime.tv_sec));
+    sprintf(timeBuffer,"UTC:   %s", timestamp);
+
+    if (height>25) {
+      strftime(timestamp, sizeof(timestamp), "%H:%M:%S", localtime(&currentTime.tv_sec));
+      sprintf(tmpstr,  "\nLocal: %s", timestamp);
+      strcat(timeBuffer,tmpstr);
+    }
+
+
+    gtk_label_set_text((GtkLabel*)timeWindow, timeBuffer);
+
+    gtk_widget_queue_draw(timeWindow);
+    gtk_widget_show(timeWindow);
+    displayLock.unlock();
+    sleep(1);
+  }
+}
 
 void voltageCatcher() {
     logger.debug("init voltage catcher; channel=%d", options.aspectVoltageChannel);
@@ -790,6 +820,9 @@ int main(int argc, char **argv) {
     degreeInputBox = (GtkWidget *) gtk_builder_get_object (builder, "DegreeInputBox");
     drawingArea = (GtkWidget *) gtk_builder_get_object (builder, "CompassDrawingArea");
     
+    timeWindow = (GtkWidget *) gtk_builder_get_object (builder, "TimeWindow");
+
+
     createDrawingSurface(drawingArea);
     g_signal_connect (drawingArea,"configure-event", G_CALLBACK (configure_event_cb), NULL);
     g_signal_connect (drawingArea, "draw", G_CALLBACK (draw_cb), NULL);
@@ -801,7 +834,7 @@ int main(int argc, char **argv) {
         gtk_window_fullscreen(GTK_WINDOW(window));
     }
     
-    
+    thread(timeUpdate).detach();
     thread(voltageCatcher).detach();
     thread(renderCompass).detach();
     thread(initRotorDegrees).detach();
