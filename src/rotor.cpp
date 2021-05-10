@@ -38,6 +38,9 @@ FILE *logFile=nullptr;
 vector<pair<uint64_t, float>*> points;
 bool capturePoints=false;
 
+int screenWidth;
+int screenHeight;
+
 #define TARGET_FREQ             WS2811_TARGET_FREQ
 #define GPIO_PIN                18   // BCM numbering system
 #define DMA                     10   // DMA=Direct Memory Access
@@ -98,6 +101,8 @@ struct directionalType {
         90, 135,   180,  225,  270, 315,     0, 45
 };
 
+
+
 float translateRotor2Display(float degrees) {
     if (degrees>180) {
         return degrees-180;
@@ -119,6 +124,15 @@ float translateDisplay2Rotor(float degrees) {
     }    
     return workingDegrees;
 }
+
+void hideMouse() {
+  char cmd[2048];
+
+  delay(1000);
+  sprintf(cmd,"xdotool mousemove %d %d", screenWidth, screenHeight);
+  system(cmd);
+}
+
 
 
 void a2dSetup() {
@@ -273,6 +287,8 @@ static void moveRotor(float degrees) {
 static void moveExact(GtkWidget *widget, gpointer data) {
   auto raw = gtk_entry_get_text(GTK_ENTRY(degreeInputBox));
 
+  thread(hideMouse).detach();
+
   int  len=strlen(raw);
   char s[len+1];
   memset(s,0,len+1);
@@ -346,10 +362,13 @@ static void moveExact(GtkWidget *widget, gpointer data) {
 
 static void moveTenCounterClockwise(GtkWidget *widget, gpointer data) {
   moveRotor(-10);
+  thread(hideMouse).detach();
 }
 static void moveTenClockwise(GtkWidget *widget, gpointer data) {
   moveRotor(10);
+  thread(hideMouse).detach();
 }
+
 
 
 static void moveTo(GtkWidget *widget, gpointer data) {
@@ -358,6 +377,9 @@ static void moveTo(GtkWidget *widget, gpointer data) {
   logger.debug("directon=%d", newDirection);
 
   moveRotor(newDirection-rotorDegree);
+
+  thread(hideMouse).detach();
+
 }
 
 
@@ -578,12 +600,8 @@ void timeUpdate() {
   // old: 480x320
   // new: 800x480
 
-  GdkRectangle workarea = {0};
-  gdk_monitor_get_workarea(
-    gdk_display_get_primary_monitor(gdk_display_get_default()),
-    &workarea);
 
-  if (workarea.height>screenBreakpoint) {
+  if (screenHeight>screenBreakpoint) {
     gtk_widget_set_visible((GtkWidget*)utcLabel,       true);
     gtk_widget_set_visible((GtkWidget*)timeSeparator,  true);
     gtk_widget_set_visible((GtkWidget*)localLabel,     true);
@@ -593,7 +611,7 @@ void timeUpdate() {
 
   while(true) {
     
-    logger.debug("screen dimensiopns: <%d,%d>", workarea.width, workarea.height);
+    // logger.debug("screen dimensiopns: <%d,%d>", screenWidth, screenHeight);
 
 
     struct timeval currentTime;
@@ -605,7 +623,7 @@ void timeUpdate() {
 
 
 
-    if (workarea.height>screenBreakpoint) {
+    if (screenHeight>screenBreakpoint) {
       strftime(localTimeBuffer, sizeof(localTimeBuffer), "%H:%M:%S", localtime(&currentTime.tv_sec));
       strftime(localDateBuffer, sizeof(localDateBuffer), "%Y/%m/%d", localtime(&currentTime.tv_sec));
     }
@@ -796,6 +814,24 @@ void initTime(GtkBuilder *builder) {
 
 }
 
+void getScreenResolution() {
+  // old: 480x320
+  // new: 800x480
+
+  GdkRectangle workarea = {0};
+  gdk_monitor_get_workarea(
+  gdk_display_get_primary_monitor(gdk_display_get_default()),
+    &workarea);
+
+  screenWidth=workarea.width;
+  screenHeight=workarea.height;
+
+  if (screenWidth<480 || screenHeight<320) {
+    logger.error("minimum screen resolution is 840x320");
+    exit(7);
+  }
+}
+
 int main(int argc, char **argv) {
     GtkBuilder *builder;
     GObject    *window;
@@ -897,7 +933,10 @@ int main(int argc, char **argv) {
         logger.info("entering full screen mode");
         gtk_window_fullscreen(GTK_WINDOW(window));
     }
+
+    getScreenResolution();
     
+    thread(hideMouse).detach();
     thread(timeUpdate).detach();
     thread(voltageCatcher).detach();
     thread(renderCompass).detach();

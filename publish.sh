@@ -10,6 +10,8 @@ make
 echo copy binary
 for FILE in bin/* gtk/*
 do 
+  ONE=`echo $FILE | cut -c1`
+  [ "$ONE" = "#" ] && continue
   scp $FILE $ROTOR_PI:/home/$ROTOR_USER/bin || exit $?
 done
 
