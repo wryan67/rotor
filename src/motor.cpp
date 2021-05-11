@@ -77,6 +77,12 @@ bool isRotorReallyMoving() {
 void deactivateRotor() {
     digitalWrite(options.ClockwisePin,  RELAY_DEACTIVATED);
     digitalWrite(options.CCWPin,        RELAY_DEACTIVATED);
+
+    if (!_isRotorMoving.get()) {
+        digitalWrite(options.BrakePin,      RELAY_DEACTIVATED);
+        digitalWrite(options.RotorPower,    RELAY_DEACTIVATED);
+        return;
+    }
     logger.debug("deactivating rotor motor");
 
     auto now = currentTimeMillis();
@@ -108,6 +114,8 @@ void deactivateRotor() {
     long parkingTime = end - now;
     logger.info("travel elapsed time: %ld; parking time: %ld", travelTime, parkingTime);
 }
+
+
 
 bool isRotorMovingClockwise() {
     if (_isRotorMoving.get() && motorDirection>0) {

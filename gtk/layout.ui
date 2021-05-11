@@ -382,8 +382,8 @@
                 <property name="vexpand">True</property>
                 <property name="yalign">1</property>
                 <child>
-                  <object class="GtkButton" id="quit">
-                    <property name="label" translatable="yes">Quit</property>
+                  <object class="GtkButton" id="abort">
+                    <property name="label" translatable="yes">Abort</property>
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
                     <property name="receives_default">True</property>

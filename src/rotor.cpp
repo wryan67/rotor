@@ -50,6 +50,8 @@ int  stopColor    = 0xff0000;
 int  movingColor  = 0x00ff00;
 int  brakingColor = 0xffff00;
 
+atomic<bool> stoppingRotor{false};
+
 // #pragma clang diagnostic push
 // #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #pragma GCC diagnostic push
@@ -196,6 +198,44 @@ bool hitLimitSwitch() {
     }
 }
 
+
+static void stopRotor(float newDegree) {   
+    bool expected=false;
+    if (!stoppingRotor.compare_exchange_weak(expected, true)) {
+      return;
+    }
+
+    logger.info("stopping rotor indicator");
+    neopixel_setPixel(operationIndicator, brakingColor);
+    neopixel_render();
+    delay(1);
+
+    deactivateRotor();
+    
+    if (logFile) fprintf(logFile,"parked\n");
+
+    delay(100);
+    float targetDeviation=rotorDegree-newDegree;
+    if (debug) {
+        forceVoltageDebugDisplay=true;
+        usleep(options.catcherDelay);
+    }
+    logger.info("rotor parked; rotorDegree=%3.0f; target deviation=%.1f", 
+                    rotorDegree, targetDeviation);
+    neopixel_setPixel(operationIndicator, stopColor);
+    neopixel_render();
+
+    forceCompassRedraw=true;
+
+    if (logFile) {
+        fclose(logFile);
+        delay(20);
+        logFile=nullptr;
+    } 
+    parked=true;
+    stoppingRotor=false;
+}
+
 static void moveRotorWorker(float degrees, float newDegree) {
 
     parked=false;
@@ -225,33 +265,8 @@ static void moveRotorWorker(float degrees, float newDegree) {
             usleep(250);  // 0.25 ms
         }
     }
+    stopRotor(newDegree);
 
-    logger.info("stopping rotor indicator");
-    neopixel_setPixel(operationIndicator, brakingColor);
-    neopixel_render();
-    delay(1);
-
-    deactivateRotor();
-    
-    if (logFile) fprintf(logFile,"parked\n");
-    parked=true;
-    float targetDeviation=rotorDegree-newDegree;
-    if (debug) {
-        forceVoltageDebugDisplay=true;
-        usleep(options.catcherDelay);
-    }
-    logger.info("rotor parked; rotorDegree=%3.0f; target deviation=%.1f", 
-                    rotorDegree, targetDeviation);
-    neopixel_setPixel(operationIndicator, stopColor);
-    neopixel_render();
-
-    forceCompassRedraw=true;
-
-    if (logFile) {
-        fclose(logFile);
-        delay(20);
-        logFile=nullptr;
-    } 
 }
 
 static void moveRotor(float degrees) {
@@ -832,6 +847,26 @@ void getScreenResolution() {
   }
 }
 
+// moveTenClockwise(GtkWidget *widget, gpointer data)
+
+void abortMovement() {
+  thread(deactivateRotor).detach();
+  thread(hideMouse).detach();
+} 
+
+void programStop() {
+  gtk_main_quit();
+
+  deactivateRotor();
+
+  while(!parked) {
+    delay(10);
+  }
+
+  exit(0);
+}
+
+
 int main(int argc, char **argv) {
     GtkBuilder *builder;
     GObject    *window;
@@ -889,7 +924,7 @@ int main(int argc, char **argv) {
 
     /* Connect signal handlers to the constructed widgets. */
     window = gtk_builder_get_object (builder, "window");
-    g_signal_connect (window, "destroy", G_CALLBACK (gtk_main_quit), NULL);
+    g_signal_connect (window, "destroy", G_CALLBACK (programStop), NULL);
 
     button = gtk_builder_get_object (builder, "MoveExactButton");
     g_signal_connect (button, "clicked", G_CALLBACK (moveExact), NULL);
@@ -901,8 +936,8 @@ int main(int argc, char **argv) {
     g_signal_connect (button, "clicked", G_CALLBACK (moveTenClockwise), NULL);
 
 
-    button = gtk_builder_get_object (builder, "quit");
-    g_signal_connect (button, "clicked", G_CALLBACK (gtk_main_quit), NULL);
+    button = gtk_builder_get_object (builder, "abort");
+    g_signal_connect (button, "clicked", G_CALLBACK (abortMovement), NULL);
 
     setButton(builder, "northButton", "clicked", G_CALLBACK(moveTo), &directional.north);
     setButton(builder, "southButton", "clicked", G_CALLBACK(moveTo), &directional.south);
@@ -949,3 +984,4 @@ int main(int argc, char **argv) {
 }
 // #pragma clang diagnostic pop
 #pragma GCC diagnostic pop
+void stopMotor();
