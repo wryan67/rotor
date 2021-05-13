@@ -57,4 +57,4 @@ To start rotor on boot:
 
 ### Screenshot:
 
-![screenshot3](https://raw.githubusercontent.com/wryan67/rotor/main/readme/screenshot3.png)
+![screenshot3](https://raw.githubusercontent.com/wryan67/rotor/main/readme/screenshot4.png)
