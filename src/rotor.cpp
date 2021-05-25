@@ -148,11 +148,11 @@ void a2dSetup() {
 	}
 
 
-    float v3 = readVoltage(a2dHandle, options.v3channel, 0);
+    float v3 = readVoltageSingleShot(a2dHandle, options.v3channel, 0);
 
     if (round(v3*10)!=33) {
         for (int c=0;c<4;++c) {
-            float volts = readVoltage(a2dHandle, c, 0);
+            float volts = readVoltageSingleShot(a2dHandle, c, 0);
             logger.info("channel<%d>=%f", c, volts);
         }
         logger.info("a2dHandle=%d; a2d_address=%02x", a2dHandle, ADS1115_ADDRESS);
@@ -671,7 +671,7 @@ void voltageCatcher() {
 
     while (true) {
         auto now = currentTimeMillis();
-        float volts = readVoltage(a2dHandle, options.aspectVoltageChannel, options.gain);
+        float volts = readVoltageSingleShot(a2dHandle, options.aspectVoltageChannel, options.gain);
 
         if (volts>=maxGain && lastVolts<(maxGain/2)) {
             logger.warn("volts >= maxGain<%f>; setting to zero", maxGain);
