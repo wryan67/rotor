@@ -1,6 +1,8 @@
 Antenna Rotor Controller
 ------------------------
-This program is designed to work with any rotor with a 500Ω variable resistor for it's variable resitor and limit swithes to prevent turning past the starting/stopping point.  Here's an  [[example]](https://raw.githubusercontent.com/wryan67/rotor/main/readme/aspect%20indicator.jpg) of what the variable resisotor should look like.  Checkout the readme folder for display pinouts and a [[circuit diagram]](https://raw.githubusercontent.com/wryan67/rotor/main/readme/rotor.png) for the system.
+This program is designed to work with any rotor that uses a variable resistor for it's aspect indicator and limit swithes to prevent turning past the starting/stopping point.  Checkout the readme folder for display pinouts and a [[circuit diagram]](https://raw.githubusercontent.com/wryan67/rotor/main/readme/rotor.png) for the system.
+
+The rotor tested with this software utilizes a 500Ω variable resistor which looks like this:  [[variable resistor]](https://raw.githubusercontent.com/wryan67/rotor/main/readme/aspect%20indicator.jpg)
 
 
 ### Prerequisites:
