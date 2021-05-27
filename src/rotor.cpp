@@ -8,6 +8,7 @@
 #include <ads1115rpi.h>
 #include <neopixel.h>  
 #include <atomic>
+#include <vector>
 
 #include <time.h>
 #include <sys/time.h>
@@ -96,6 +97,12 @@ static void createDrawingSurface(GtkWidget *widget);
 char degreeTextBox[32];
 bool ignoreMargins=false;
 
+int           sampleMode=-1;
+unsigned int  windowSize=0;
+long long     sampleEnd=0;
+float         totalSampleVolts=0;
+long          totalSamples;
+vector<float> samples;
 
 struct directionalType {
   int east,  se, south,   sw, west,  nw, north, ne;
@@ -103,7 +110,7 @@ struct directionalType {
         90, 135,   180,  225,  270, 315,     0, 45
 };
 
-
+float getDegree(float volts);
 
 float translateRotor2Display(float degrees) {
     if (degrees>180) {
@@ -135,22 +142,74 @@ void hideMouse() {
   system(cmd);
 }
 
+void getSample() {
 
+  long long now        = currentTimeMillis();
+  float currentVolts   = readVoltage(a2dHandle);
+
+  switch (sampleMode) {
+    case 0: {
+
+      totalSampleVolts+=currentVolts;      
+      samples.push_back(currentVolts);
+
+      auto oldestSample = samples.at(0);
+      totalSampleVolts-=oldestSample;
+      samples.erase(samples.begin());
+
+      float volts = totalSampleVolts / (float)windowSize;
+
+      float newDegree = getDegree(volts);
+
+      if (abs(newDegree)>360) {
+          newDegree=360;
+      }
+      if (newDegree<0) {
+          newDegree=0;
+      }
+      rotorDegree=newDegree;
+      
+      return;
+    }
+    case 1: {
+      if (now>sampleEnd) {
+        ++sampleMode;
+        return;
+      }
+      ++windowSize;
+      return;
+    }
+    case 2: {
+      ++sampleMode;
+      totalSampleVolts+=currentVolts;      
+      samples.push_back(currentVolts);
+      return;
+    }
+    case 3: {
+      totalSampleVolts+=currentVolts;
+      samples.push_back(currentVolts);
+
+      if (samples.size()>=windowSize) {
+        sampleMode=0;
+      }      
+    }
+  }
+}
 
 void a2dSetup() {
 
-    a2dHandle = wiringPiI2CSetup(ADS1115_ADDRESS);
+    a2dHandle = getADS1115Handle(ADS1115_ADDRESS);
 
-	if (a2dHandle<0)
-	{
-		fprintf(stderr, "opening ads1115 failed: %s\n", strerror(errno));
-		exit(3);
-	}
+    if (a2dHandle<0) {
+        fprintf(stderr, "opening ads1115 failed: %s\n", strerror(errno));
+        exit(3);
+    }
 
+    // adsReset(a2dHandle);
 
     float v3 = readVoltageSingleShot(a2dHandle, options.v3channel, 0);
 
-    if (round(v3*10)!=33) {
+    if (abs((3.3-v3)/((3.3+v3)/2))>0.10) {
         for (int c=0;c<4;++c) {
             float volts = readVoltageSingleShot(a2dHandle, c, 0);
             logger.info("channel<%d>=%f", c, volts);
@@ -158,8 +217,19 @@ void a2dSetup() {
         logger.info("a2dHandle=%d; a2d_address=%02x", a2dHandle, ADS1115_ADDRESS);
         logger.info("voltage on channel a%d=%f", options.v3channel, v3);
         logger.error("ads1115 chip is not working; check external power?");
-		exit(4);
+		    exit(4);
     }
+
+    wiringPiISR(2,INT_EDGE_FALLING, getSample);
+    setADS1115ContinuousMode(a2dHandle, 0, options.gain, options.sps);
+    delay(500);
+    float sixtyHzPeriod = 1000.0 * ( 1.0 / 60.0); // 1000 ms * 1/60;
+    int targetWindow= round(sixtyHzPeriod * 4.0);  //ms
+    long long start=currentTimeMillis();
+    sampleEnd  = start+targetWindow;
+    sampleMode = 1;
+    delay(targetWindow+1);
+    logger.info("window size = %d", windowSize);
 
 }
 
@@ -218,7 +288,7 @@ static void stopRotor(float newDegree) {
     float targetDeviation=rotorDegree-newDegree;
     if (debug) {
         forceVoltageDebugDisplay=true;
-        usleep(options.catcherDelay);
+        usleep(10*1000);
     }
     logger.info("rotor parked; rotorDegree=%3.0f; target deviation=%.1f", 
                     rotorDegree, targetDeviation);
@@ -650,7 +720,7 @@ void timeUpdate() {
   }
 }
 
-void voltageCatcher() {
+void voltageCatcherOld() {
     logger.debug("init voltage catcher; channel=%d", options.aspectVoltageChannel);
   
     float lastDegree=999;
@@ -760,7 +830,7 @@ void displayParameters() {
     logger.info("aspectVariableResistorOhms:        %d", options.aspectVariableResistorOhms);
     logger.info("aspectFixedResistorOhms:           %d", options.aspectFixedResistorOhms);
     logger.info("limitSwitchPin:                    %d", options.LimitSwitch);
-    logger.info("catchderDelay:                     %d ms", options.catcherDelay);
+    logger.info("sps:                               %d", options.sps);
 
     if (!options.useAspectReferenceVoltageChannel) {
         logger.info("rotorVcc:                          %f", options.rotorVcc);
@@ -786,12 +856,12 @@ void neopixel_setup() {
     neopixel_setPixel(operationIndicator+1, 0);
     neopixel_render();
 
-    logger.info("stopped color: %6x", movingColor);
+    logger.info("moving color:  %6x", movingColor);
     neopixel_setPixel(operationIndicator, movingColor);
     neopixel_render();
     delay(500);
 
-    logger.info("stopped color: %6x", brakingColor);
+    logger.info("braking color: %6x", brakingColor);
     neopixel_setPixel(operationIndicator, brakingColor);
     neopixel_render();
     delay(500);
@@ -901,11 +971,12 @@ int main(int argc, char **argv) {
 
     if (initRotorMotor()!=0) {
         logger.error("rotor motor initializaion failed");
-		exit(4);
+    		exit(4);
     }
 
 
-    gtk_init (&argc, &argv);
+
+    gtk_init(&argc, &argv);
 
     GtkCssProvider *cssProvider = gtk_css_provider_new();
     gtk_css_provider_load_from_path(cssProvider, "theme.css", NULL);
@@ -973,7 +1044,7 @@ int main(int argc, char **argv) {
     
     thread(hideMouse).detach();
     thread(timeUpdate).detach();
-    thread(voltageCatcher).detach();
+    // thread(voltageCatcher).detach();
     thread(renderCompass).detach();
     thread(initRotorDegrees).detach();
     neopixel_setup();

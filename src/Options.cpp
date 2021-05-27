@@ -1,4 +1,5 @@
 #include "Options.h"
+#include "ads1115rpi.h"
 
 int getEnvInt(const char *variable);
 
@@ -12,7 +13,6 @@ void Options::usage() {
 	fprintf(stderr, "  -r = aspect reference voltage channel (default=1)\n");
 	fprintf(stderr, "  -v = aspect variable resistor ohms (default=500)\n");
 	fprintf(stderr, "  -x = aspect fixed resistor ohms (default=1375)\n");
-    fprintf(stderr, "  -s = samples per second (default=10)\n");
     fprintf(stderr, "  -l  = limit switch input WiringPi GPIO pin");
 	exit(1);
 }
@@ -20,7 +20,7 @@ void Options::usage() {
 bool Options::commandLineOptions(int argc, char **argv) {
 	int c, index;
 
-	const char* shortOptions = "c:dfhl:r:s:v:w:x:";
+	const char* shortOptions = "c:dfhl:r:v:w:x:";
 
 	static struct option longOptions[] = {
 		{"aspectVoltageChannel",            required_argument, NULL, 'c'},
@@ -29,7 +29,6 @@ bool Options::commandLineOptions(int argc, char **argv) {
 		{"aspectFixedResistorOhms",         required_argument, NULL, 'x'},
         {"limitSwitchPin",                  required_argument, NULL, 'l'},
         {"windowSize",                      required_argument, NULL, 'w'},
-        {"samplesPerSecond",                required_argument, NULL, 's'},
 		{"debug",       optional_argument, NULL, 'd'},
 		{"full screen", optional_argument, NULL, 'f'},
 		{"help",        optional_argument, NULL, 'h'},
@@ -66,12 +65,6 @@ bool Options::commandLineOptions(int argc, char **argv) {
 			usage();
 			break;
 
-        case 's':
-            int sps;
-            sscanf(optarg, "%d", &sps);
-            catcherDelay=(1000.0/sps)+.5;
-            break;
-
 		case '?':
 			if (optopt == 'm' || optopt == 't')
 				fprintf(stderr, "Option -%c requires an argument.\n", optopt);
@@ -102,8 +95,14 @@ bool Options::commandLineOptions(int argc, char **argv) {
         OutputEnable=getEnvInt("OE");  
         RotorPower=getEnvInt("POWER");    
         LimitSwitch=getEnvInt("LIMIT");    
+        sps=getEnvInt("SPS");
     } catch (exception &e) {
         logger.error("enviornment is not setup; %s",e.what());
+        return false;
+    }
+
+    if (!isValidSPS(sps)) {
+        logger.error("invalid sps value<%s> specified, valid values are 0-7",sps);
         return false;
     }
 
