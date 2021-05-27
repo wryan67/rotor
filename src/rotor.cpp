@@ -142,7 +142,7 @@ void hideMouse() {
   system(cmd);
 }
 
-void getSample() {
+void voltageCatcher() {
 
   long long now        = currentTimeMillis();
   float currentVolts   = readVoltage(a2dHandle);
@@ -205,8 +205,6 @@ void a2dSetup() {
         exit(3);
     }
 
-    // adsReset(a2dHandle);
-
     float v3 = readVoltageSingleShot(a2dHandle, options.v3channel, 0);
 
     if (abs((3.3-v3)/((3.3+v3)/2))>0.10) {
@@ -220,7 +218,7 @@ void a2dSetup() {
 		    exit(4);
     }
 
-    wiringPiISR(2,INT_EDGE_FALLING, getSample);
+    wiringPiISR(2,INT_EDGE_FALLING, voltageCatcher);
     setADS1115ContinuousMode(a2dHandle, 0, options.gain, options.sps);
     delay(500);
     float sixtyHzPeriod = 1000.0 * ( 1.0 / 60.0); // 1000 ms * 1/60;
