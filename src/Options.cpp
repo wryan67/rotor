@@ -10,7 +10,6 @@ void Options::usage() {
 	fprintf(stderr, "  -d = debug\n");
 	fprintf(stderr, "  -f = full screen\n");
 	fprintf(stderr, "  -c = aspect voltage channel (default=0)\n");
-	fprintf(stderr, "  -r = aspect reference voltage channel (default=1)\n");
 	fprintf(stderr, "  -v = aspect variable resistor ohms (default=500)\n");
 	fprintf(stderr, "  -x = aspect fixed resistor ohms (default=1375)\n");
     fprintf(stderr, "  -l  = limit switch input WiringPi GPIO pin");
@@ -41,10 +40,6 @@ bool Options::commandLineOptions(int argc, char **argv) {
             sscanf(optarg, "%d", &aspectVoltageChannel);
             break;
             
-        case 'r':
-            sscanf(optarg, "%d", &aspectReferenceVoltageChannel);
-            break;
-
         case 'v':
             sscanf(optarg, "%d", &aspectVariableResistorOhms);
             break;

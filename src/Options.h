@@ -19,7 +19,6 @@ public:
     int      v3channel                      = 3;
     int      sps                            = 5;
     int      aspectVoltageChannel           = 0;
-    int      aspectReferenceVoltageChannel  = 1;
     int      aspectVariableResistorOhms     = 500;
     int      aspectFixedResistorOhms        = 1375;
     float    rotorVcc                       = 15.0;
@@ -32,7 +31,6 @@ public:
     int      RotorPower;    
     int      LimitSwitch                    = 0;
 
-    bool     useAspectReferenceVoltageChannel=false;
 
     char *sampleFileName;
     FILE *sampleFile;

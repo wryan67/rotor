@@ -168,7 +168,11 @@ void voltageCatcher() {
           newDegree=0;
       }
       rotorDegree=newDegree;
-      
+
+      // if ((currentTimeMillis()%500)==0) {
+      //   logger.info("current volts: %6.3f;  avg volts=%6.3f  ws=%d", currentVolts, volts, windowSize);
+      // }
+
       return;
     }
     case 1: {
@@ -218,16 +222,36 @@ void a2dSetup() {
 		    exit(4);
     }
 
+    options.sps=5;
+    logger.info("channel=%d; gain=%d; sps=%d", options.aspectVoltageChannel, options.gain, options.sps);
+
     wiringPiISR(2,INT_EDGE_FALLING, voltageCatcher);
-    setADS1115ContinuousMode(a2dHandle, 0, options.gain, options.sps);
+    setADS1115ContinuousMode(a2dHandle, options.aspectVoltageChannel, options.gain, options.sps);
     delay(500);
+
+    float targetPeriods = 3;
     float sixtyHzPeriod = 1000.0 * ( 1.0 / 60.0); // 1000 ms * 1/60;
-    int targetWindow= round(sixtyHzPeriod * 4.0);  //ms
+    int targetWindow= round(sixtyHzPeriod * targetPeriods);  //ms
+
+    logger.info("60Hz period = %.1f; targetPeriods=%f; targetWindowSize=%dms", sixtyHzPeriod, targetPeriods, targetWindow);
     long long start=currentTimeMillis();
     sampleEnd  = start+targetWindow;
     sampleMode = 1;
-    delay(targetWindow+1);
+    delay(targetWindow+10);
+
     logger.info("window size = %d", windowSize);
+    int expectedSampleWindow = targetWindow * 2500 / 1000;
+
+    float pct = 100 * ((long)windowSize-expectedSampleWindow) / ((expectedSampleWindow+windowSize)/2.0);
+    if (pct<-10) {
+      logger.info("pct=%.0f", pct);
+      logger.error("unable to reach target sample size<%d>.  Is your i2c bus overclocked?", expectedSampleWindow);
+      exit(19);
+    }
+    if (pct>11) {
+      logger.error("unable to reach target sample size<%d>.  pct=%.0f", expectedSampleWindow, pct);
+      exit(19);
+    }
 
 }
 
@@ -822,21 +846,12 @@ void displayParameters() {
         return;
     }
     logger.info("fullscreen:                        %s",(options.fullscreen)?"true":"false");
-    logger.info("useAspectReferenceVoltageChannel:  %s",(options.useAspectReferenceVoltageChannel)?"true":"false");
-    logger.info("aspectVoltageChannel:              %d", options.fullscreen);
-    logger.info("aspectReferenceVoltageChannel:     %d", options.aspectReferenceVoltageChannel);
+    logger.info("aspectVoltageChannel:              %d", options.aspectVoltageChannel);
     logger.info("aspectVariableResistorOhms:        %d", options.aspectVariableResistorOhms);
     logger.info("aspectFixedResistorOhms:           %d", options.aspectFixedResistorOhms);
     logger.info("limitSwitchPin:                    %d", options.LimitSwitch);
     logger.info("sps:                               %d", options.sps);
 
-    if (!options.useAspectReferenceVoltageChannel) {
-        logger.info("rotorVcc:                          %f", options.rotorVcc);
-
-        float  rotorVout = (options.rotorVcc*options.aspectVariableResistorOhms) / 
-                (options.aspectFixedResistorOhms+options.aspectVariableResistorOhms);
-        logger.info("max allowed voltage:           %.2f", rotorVout);
-    }
 }
 
 void neopixel_setup() {
