@@ -99,7 +99,6 @@ bool ignoreMargins=false;
 
 int           sampleMode=-1;
 unsigned int  windowSize=0;
-long long     sampleEnd=0;
 float         totalSampleVolts=0;
 long          totalSamples;
 vector<float> samples;
@@ -144,7 +143,7 @@ void hideMouse() {
 
 void voltageCatcher() {
 
-  long long now        = currentTimeMillis();
+  // long long now        = currentTimeMillis();
   float currentVolts   = readVoltage(a2dHandle);
 
   switch (sampleMode) {
@@ -169,28 +168,18 @@ void voltageCatcher() {
       }
       rotorDegree=newDegree;
 
-      // if ((currentTimeMillis()%500)==0) {
+      // if ((now%500)==0) {
       //   logger.info("current volts: %6.3f;  avg volts=%6.3f  ws=%d", currentVolts, volts, windowSize);
       // }
 
       return;
     }
     case 1: {
-      if (now>sampleEnd) {
-        ++sampleMode;
-        return;
-      }
       ++windowSize;
       return;
     }
     case 2: {
-      ++sampleMode;
       totalSampleVolts+=currentVolts;      
-      samples.push_back(currentVolts);
-      return;
-    }
-    case 3: {
-      totalSampleVolts+=currentVolts;
       samples.push_back(currentVolts);
 
       if (samples.size()>=windowSize) {
@@ -231,13 +220,13 @@ void a2dSetup() {
 
     float targetPeriods = 3;
     float sixtyHzPeriod = 1000.0 * ( 1.0 / 60.0); // 1000 ms * 1/60;
-    int targetWindow= round(sixtyHzPeriod * targetPeriods);  //ms
+    float targetWindow= round(sixtyHzPeriod * targetPeriods);  //ms
 
-    logger.info("60Hz period = %.1f; targetPeriods=%f; targetWindowSize=%dms", sixtyHzPeriod, targetPeriods, targetWindow);
-    long long start=currentTimeMillis();
-    sampleEnd  = start+targetWindow;
+    logger.info("60Hz period = %.1f; targetPeriods=%.0f; targetWindowSize=%.1fms", sixtyHzPeriod, targetPeriods, targetWindow);
+
     sampleMode = 1;
-    delay(targetWindow+10);
+    usleep(targetWindow*1000);
+    ++sampleMode;
 
     logger.info("window size = %d", windowSize);
     int expectedSampleWindow = targetWindow * 2500 / 1000;
