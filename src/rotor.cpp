@@ -101,6 +101,7 @@ int           sampleMode=-1;
 unsigned int  windowSize=0;
 float         totalSampleVolts=0;
 long          totalSamples;
+float         lastDisplayVolts=-9;
 vector<float> samples;
 
 struct directionalType {
@@ -141,9 +142,9 @@ void hideMouse() {
   system(cmd);
 }
 
+
 void voltageCatcher() {
 
-  // long long now        = currentTimeMillis();
   float currentVolts   = readVoltage(a2dHandle);
 
   switch (sampleMode) {
@@ -166,12 +167,23 @@ void voltageCatcher() {
       if (newDegree<0) {
           newDegree=0;
       }
+      int lastDegree=rotorDegree;
       rotorDegree=newDegree;
 
-      // if ((now%500)==0) {
-      //   logger.info("current volts: %6.3f;  avg volts=%6.3f  ws=%d", currentVolts, volts, windowSize);
-      // }
+      if (abs(newDegree-lastDegree)>options.wobbleLimit) {
+          forceVoltageDebugDisplay=true;
+          lastDegree=newDegree;
+      }
 
+      if (abs(volts-lastDisplayVolts)>0.05 || forceVoltageDebugDisplay) {
+          int limitSwitch = digitalRead(options.LimitSwitch);
+
+          logger.debug("bs=%d ls=%d ch[0]=%.3f i-degree=%.1f d-degree=%.0f gain=%d r1=%d", 
+                  getBrakeStatus(), limitSwitch,  volts, newDegree, translateRotor2Display(newDegree), 
+                  options.gain, options.aspectFixedResistorOhms);
+          lastDisplayVolts=volts;
+          forceVoltageDebugDisplay=false;
+      }
       return;
     }
     case 1: {
@@ -216,32 +228,51 @@ void a2dSetup() {
 
     wiringPiISR(2,INT_EDGE_FALLING, voltageCatcher);
     setADS1115ContinuousMode(a2dHandle, options.aspectVoltageChannel, options.gain, options.sps);
-    delay(500);
 
     float targetPeriods = 3;
     float sixtyHzPeriod = 1000.0 * ( 1.0 / 60.0); // 1000 ms * 1/60;
     float targetWindow= round(sixtyHzPeriod * targetPeriods);  //ms
 
-    logger.info("60Hz period = %.1f; targetPeriods=%.0f; targetWindowSize=%.1fms", sixtyHzPeriod, targetPeriods, targetWindow);
+    logger.info("60Hz period = %.1f; targetPeriods=%.0f; targetWindow=%.1fms", sixtyHzPeriod, targetPeriods, targetWindow);
 
-    sampleMode = 1;
-    usleep(targetWindow*1000);
-    ++sampleMode;
+    int   tries=3;
+    float pct;
+    int   expectedSampleWindow = targetWindow * 2500 / 1000;
 
-    logger.info("window size = %d", windowSize);
-    int expectedSampleWindow = targetWindow * 2500 / 1000;
+    while (tries-->0) {
+      delay(500);
 
-    float pct = 100 * ((long)windowSize-expectedSampleWindow) / ((expectedSampleWindow+windowSize)/2.0);
-    if (pct<-10) {
-      logger.info("pct=%.0f", pct);
-      logger.error("unable to reach target sample size<%d>.  Is your i2c bus overclocked?", expectedSampleWindow);
-      exit(19);
+      sampleMode=-1;
+      delay(5);
+      windowSize=0;
+      totalSampleVolts=0;
+      totalSamples=0;
+      lastDisplayVolts=-9;
+      samples.clear();
+      forceVoltageDebugDisplay=false;
+
+      sampleMode = 1;
+      usleep(targetWindow*1000);
+      ++sampleMode;
+
+      logger.info("window size = %d", windowSize);
+
+      pct = 100 * ((long)windowSize-expectedSampleWindow) / ((expectedSampleWindow+windowSize)/2.0);
+      if (abs(pct)<=11) {
+        return;
+      }
+      logger.info("retying...");
     }
-    if (pct>11) {
-      logger.error("unable to reach target sample size<%d>.  pct=%.0f", expectedSampleWindow, pct);
-      exit(19);
+    logger.info("pct=%.0f", pct);
+    logger.info("calculated window size = %d ", windowSize);
+    logger.error("unable to reach target window size of %d.", expectedSampleWindow);
+    if (pct<0) {
+      logger.error("Is your i2c bus overclocked?", expectedSampleWindow);
+    } else {
+      logger.error("Target windows is larger than expected.");
+      logger.error("Unknown error");
     }
-
+    exit(19);
 }
 
 int textBoxWidgetUpdate(gpointer data) {
@@ -273,6 +304,7 @@ bool hitLimitSwitch() {
     int limitSwitch = digitalRead(options.LimitSwitch);
     if (limitSwitch==1) {
         logger.debug("Limit switch triggered");
+        forceVoltageDebugDisplay=true;
         return true;
     } else {
         return false;
@@ -297,12 +329,10 @@ static void stopRotor(float newDegree) {
 
     delay(100);
     float targetDeviation=rotorDegree-newDegree;
-    if (debug) {
-        forceVoltageDebugDisplay=true;
-        usleep(10*1000);
-    }
+
     logger.info("rotor parked; rotorDegree=%3.0f; target deviation=%.1f", 
                     rotorDegree, targetDeviation);
+    forceVoltageDebugDisplay=true;
     neopixel_setPixel(operationIndicator, stopColor);
     neopixel_render();
 
@@ -968,7 +998,8 @@ int main(int argc, char **argv) {
 	}
     
     pinMode(options.LimitSwitch, INPUT);
-    pullUpDnControl(options.LimitSwitch, PUD_UP);
+    // doesn't work on RPi 4
+    //pullUpDnControl(options.LimitSwitch, PUD_UP);
   	a2dSetup();
 
     if (initRotorMotor()!=0) {
