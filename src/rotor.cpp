@@ -60,10 +60,9 @@ atomic<bool> stoppingRotor{false};
 
 Logger     logger("main");
 
-
+atomic<bool> isSettingsDialogueActive{false};
 
 GtkWidget *drawingArea=nullptr;
-
 GtkWidget *timeWindow=nullptr;
 
 GtkLabel  *utcLabel=nullptr;
@@ -1027,7 +1026,7 @@ GtkWindow    *settingsWindow;
 int hideSettings(gpointer data) {
   logger.info("hide settings");
   gtk_window_close(settingsWindow);
-
+  isSettingsDialogueActive=false;
   return FALSE;
 }
 
@@ -1077,7 +1076,11 @@ int showSettings(gpointer data) {
 }
 
 void settingsDialogue() {
+    bool expected=false;
 
+    if (!isSettingsDialogueActive.compare_exchange_weak(expected, true)) {
+      return;
+    }
     logger.info("start settigs dialogue");
     g_idle_add(showSettings, nullptr);
 
