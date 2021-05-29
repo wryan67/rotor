@@ -1081,7 +1081,6 @@ void settingsDialogue() {
     while (!isSettingsDialogueActive.compare_exchange_weak(expected, true)) {
       hideSettings(nullptr);
       delay(50);
-      return;
     }
     logger.info("start settigs dialogue");
     g_idle_add(showSettings, nullptr);
