@@ -59,6 +59,9 @@ atomic<bool> stoppingRotor{false};
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 Logger     logger("main");
+
+
+
 GtkWidget *drawingArea=nullptr;
 
 GtkWidget *timeWindow=nullptr;
@@ -71,7 +74,6 @@ char       utcTimeBuffer[512];
 char       utcDateBuffer[512];
 
 GtkLabel  *timeSeparator=nullptr;
-
 GtkLabel  *localLabel=nullptr;
 GtkLabel  *localTime=nullptr;
 GtkLabel  *localDate=nullptr;
@@ -550,7 +552,8 @@ static void drawCompass(bool newSurface) {
   gdouble x=width/2.0-1;
   gdouble y=height/2.0-1;
 
-  int radius = (x<y)?x-3:y-3;
+  int outerRadius = (x<y)?x-3:y-3;
+  int radius = outerRadius;
   auto currDegree = rotorDegree;
   auto degree=currDegree+90;
   if (degree<0) {
@@ -615,7 +618,8 @@ static void drawCompass(bool newSurface) {
       CAIRO_FONT_SLANT_NORMAL,
       CAIRO_FONT_WEIGHT_BOLD);
   
-  cairo_set_font_size(cr, 20);
+  
+  cairo_set_font_size(cr, outerRadius / 2.5);
   cairo_text_extents(cr, deg, &extents);
 
   float halfText = extents.width/2;
@@ -624,15 +628,18 @@ static void drawCompass(bool newSurface) {
 
   float textY;
   if (currDegree<90 || currDegree>270) {
-    textY=y-(extents.height*1.5);
+    textY=y-(outerRadius/3)+(extents.height/2);
   } else {
-    textY=y+(extents.height*2.5);
+    textY=y+(outerRadius/3)+(extents.height/2);
   }
   cairo_move_to(cr, x-halfText, textY);
   cairo_show_text(cr, deg);
 
-  int padTop=3;
-  int padBottom=padTop+1;
+  cairo_text_extents(cr, "XXX", &extents);
+  halfText = extents.width/2;
+
+  int padTop=4;
+  int padBottom=padTop;
   int padLeft=6;
   int padRight=padLeft+1;
 
@@ -1014,8 +1021,83 @@ void programStop() {
 }
 
 
+GtkWindow    *settingsWindow;
+
+
+int hideSettings(gpointer data) {
+  logger.info("hide settings");
+  gtk_window_close(settingsWindow);
+
+  return FALSE;
+}
+
+void cancelSettings() {
+    logger.info("cancel settings");
+    g_idle_add(hideSettings, nullptr);
+}
+
+void saveSettings() {
+    logger.info("save settings");
+
+    g_idle_add(hideSettings, nullptr);
+
+}
+
+int showSettings(gpointer data) {
+    logger.info("show settings");
+    GtkBuilder *uiBuilder;
+    GObject    *button;
+    GError     *error=nullptr;
+
+    /* Construct a GtkBuilder instance and load our UI description */
+    uiBuilder = gtk_builder_new ();
+    if (gtk_builder_add_from_file (uiBuilder, "settings.ui", &error) == 0) {
+        g_printerr ("Error loading file: %s\n", error->message);
+        g_clear_error (&error);
+        return 1;
+    }
+
+    settingsWindow = (GtkWindow*) gtk_builder_get_object (uiBuilder, "SettingsWindow");
+    g_signal_connect (settingsWindow, "destroy", G_CALLBACK (cancelSettings), NULL);
+
+    button = gtk_builder_get_object (uiBuilder, "SaveSettingsButton");
+    g_signal_connect (button, "clicked", G_CALLBACK (saveSettings), NULL);
+
+    button = gtk_builder_get_object (uiBuilder, "CancelSettingsButton");
+    g_signal_connect (button, "clicked", G_CALLBACK (cancelSettings), NULL);
+
+    // if (options.fullscreen) {
+    //     gtk_window_fullscreen(GTK_WINDOW(settingsWindow));
+    // }
+
+
+    gtk_widget_show_all((GtkWidget*)settingsWindow);
+
+    return FALSE;
+}
+
+void settingsDialogue() {
+
+    logger.info("start settigs dialogue");
+    g_idle_add(showSettings, nullptr);
+
+
+}
+
+static gboolean compassClick(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
+
+
+    if (event->type == GDK_2BUTTON_PRESS) {
+      logger.info("mouse double click button <%d> @ (%.0f,%.0f)", event->button, event->x, event->y);
+
+      settingsDialogue();
+    }
+
+    return TRUE;
+}
+
 int main(int argc, char **argv) {
-    GtkBuilder *builder;
+    GtkBuilder *uiBuilder;
     GObject    *window;
     GObject    *button;
     GError     *error=nullptr;
@@ -1064,46 +1146,54 @@ int main(int argc, char **argv) {
                                 GTK_STYLE_PROVIDER_PRIORITY_USER);
 
     /* Construct a GtkBuilder instance and load our UI description */
-    builder = gtk_builder_new ();
-    if (gtk_builder_add_from_file (builder, "layout.ui", &error) == 0) {
+    uiBuilder = gtk_builder_new ();
+    if (gtk_builder_add_from_file (uiBuilder, "layout.ui", &error) == 0) {
         g_printerr ("Error loading file: %s\n", error->message);
         g_clear_error (&error);
         return 1;
     }
 
     /* Connect signal handlers to the constructed widgets. */
-    window = gtk_builder_get_object (builder, "window");
+    window = gtk_builder_get_object (uiBuilder, "window");
     g_signal_connect (window, "destroy", G_CALLBACK (programStop), NULL);
 
-    button = gtk_builder_get_object (builder, "MoveExactButton");
+    button = gtk_builder_get_object (uiBuilder, "MoveExactButton");
     g_signal_connect (button, "clicked", G_CALLBACK (moveExact), NULL);
 
-    button = gtk_builder_get_object (builder, "FastReverse");
+    button = gtk_builder_get_object (uiBuilder, "FastReverse");
     g_signal_connect (button, "clicked", G_CALLBACK (moveTenCounterClockwise), NULL);
 
-    button = gtk_builder_get_object (builder, "FastForward");
+    button = gtk_builder_get_object (uiBuilder, "FastForward");
     g_signal_connect (button, "clicked", G_CALLBACK (moveTenClockwise), NULL);
 
 
-    button = gtk_builder_get_object (builder, "abort");
+    button = gtk_builder_get_object (uiBuilder, "abort");
     g_signal_connect (button, "clicked", G_CALLBACK (abortMovement), NULL);
 
-    setButton(builder, "northButton", "clicked", G_CALLBACK(moveTo), &directional.north);
-    setButton(builder, "southButton", "clicked", G_CALLBACK(moveTo), &directional.south);
-    setButton(builder, "eastButton", "clicked", G_CALLBACK(moveTo),  &directional.east);
-    setButton(builder, "westButton", "clicked", G_CALLBACK(moveTo),  &directional.west);
-
-    setButton(builder, "seButton", "clicked", G_CALLBACK(moveTo), &directional.se);
-    setButton(builder, "swButton", "clicked", G_CALLBACK(moveTo), &directional.sw);
-    setButton(builder, "nwButton", "clicked", G_CALLBACK(moveTo), &directional.nw);
-    setButton(builder, "neButton", "clicked", G_CALLBACK(moveTo), &directional.ne);
+    drawingArea = (GtkWidget *) gtk_builder_get_object (uiBuilder, "CompassDrawingArea");
+    g_signal_connect (window, "button-press-event", G_CALLBACK (compassClick), NULL);
 
 
 
-    degreeInputBox = (GtkWidget *) gtk_builder_get_object (builder, "DegreeInputBox");
-    drawingArea = (GtkWidget *) gtk_builder_get_object (builder, "CompassDrawingArea");
+    setButton(uiBuilder, "northButton", "clicked", G_CALLBACK(moveTo), &directional.north);
+    setButton(uiBuilder, "southButton", "clicked", G_CALLBACK(moveTo), &directional.south);
+    setButton(uiBuilder, "eastButton", "clicked", G_CALLBACK(moveTo),  &directional.east);
+    setButton(uiBuilder, "westButton", "clicked", G_CALLBACK(moveTo),  &directional.west);
 
-    initTime(builder);
+    setButton(uiBuilder, "seButton", "clicked", G_CALLBACK(moveTo), &directional.se);
+    setButton(uiBuilder, "swButton", "clicked", G_CALLBACK(moveTo), &directional.sw);
+    setButton(uiBuilder, "nwButton", "clicked", G_CALLBACK(moveTo), &directional.nw);
+    setButton(uiBuilder, "neButton", "clicked", G_CALLBACK(moveTo), &directional.ne);
+
+
+
+    degreeInputBox = (GtkWidget *) gtk_builder_get_object (uiBuilder, "DegreeInputBox");
+
+    initTime(uiBuilder);
+
+
+
+
 
 
 
