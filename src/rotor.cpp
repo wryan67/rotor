@@ -1078,7 +1078,9 @@ int showSettings(gpointer data) {
 void settingsDialogue() {
     bool expected=false;
 
-    if (!isSettingsDialogueActive.compare_exchange_weak(expected, true)) {
+    while (!isSettingsDialogueActive.compare_exchange_weak(expected, true)) {
+      hideSettings(nullptr);
+      delay(50);
       return;
     }
     logger.info("start settigs dialogue");
