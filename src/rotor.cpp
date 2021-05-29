@@ -86,7 +86,6 @@ bool  forceCompassRedraw=false;
 bool  forceVoltageDebugDisplay=false;
 
 mutex displayLock;
-mutex updateTextLock;
 
 GtkWidget *degreeInputBox;
 
@@ -277,6 +276,10 @@ void a2dSetup() {
 
 int textBoxWidgetUpdate(gpointer data) {
     gtk_entry_set_text(GTK_ENTRY(degreeInputBox), degreeTextBox);
+    return 0;
+}
+
+int timeWidgetUpdate(gpointer data) {
 
     gtk_label_set_text(utcTime, utcTimeBuffer);
     gtk_label_set_text(utcDate, utcDateBuffer);
@@ -284,26 +287,29 @@ int textBoxWidgetUpdate(gpointer data) {
     gtk_label_set_text(localTime, localTimeBuffer);
     gtk_label_set_text(localDate, localDateBuffer);
 
-    updateTextLock.unlock();
     return 0;
 }
 
 
-void updateTextBox(float degree, bool forceRedraw) {
-    updateTextLock.lock();
+void updateTextBox(float degree) {
 
-
-    sprintf(degreeTextBox,"%.1f", degree);
+    sprintf(degreeTextBox,"%.0f", degree);
 
     g_idle_add(textBoxWidgetUpdate, nullptr);
+}
 
+void clearTextBox() {
+
+    degreeTextBox[0]=0;
+
+    g_idle_add(textBoxWidgetUpdate, nullptr);
 }
 
 
 bool hitLimitSwitch() {
     int limitSwitch = digitalRead(options.LimitSwitch);
     if (limitSwitch==1) {
-        logger.debug("Limit switch triggered");
+        logger.info("Limit switch triggered");
         forceVoltageDebugDisplay=true;
         return true;
     } else {
@@ -345,6 +351,7 @@ static void stopRotor(float newDegree) {
     } 
     parked=true;
     stoppingRotor=false;
+    clearTextBox();
 }
 
 static void moveRotorWorker(float degrees, float newDegree) {
@@ -472,7 +479,7 @@ static void moveExact(GtkWidget *widget, gpointer data) {
     if (d>=0 && d<360) {
       moveRotor(translateDisplay2Rotor(d)-rotorDegree);
       logger.debug("Move to %.1f", d);
-      updateTextBox(d, false);
+      updateTextBox(d);
       return;
     }
     throw (runtime_error("unknown error"));
@@ -481,8 +488,7 @@ static void moveExact(GtkWidget *widget, gpointer data) {
   } catch (...) {
     logger.error("invalid degree entered in text box %s", raw);
   }
-  updateTextBox(translateRotor2Display(rotorDegree), false);
-
+  updateTextBox(translateRotor2Display(rotorDegree));
 }
 
 
@@ -545,7 +551,8 @@ static void drawCompass(bool newSurface) {
   gdouble y=height/2.0-1;
 
   int radius = (x<y)?x-3:y-3;
-  auto degree=rotorDegree+90;
+  auto currDegree = rotorDegree;
+  auto degree=currDegree+90;
   if (degree<0) {
       degree=360-degree;
   }
@@ -595,7 +602,47 @@ static void drawCompass(bool newSurface) {
   cairo_line_to(cr, x+xPoint,  y+yPoint);
   cairo_close_path (cr);
   cairo_stroke(cr);
+
+// degree
+  char deg[32];
+  auto displayDegree = translateDisplay2Rotor(currDegree);
+  sprintf(deg,"%.0f", displayDegree);
+
+  const char *fontFace = "Courier New";
+  cairo_text_extents_t extents;
+
+  cairo_select_font_face(cr, fontFace, 
+      CAIRO_FONT_SLANT_NORMAL,
+      CAIRO_FONT_WEIGHT_BOLD);
   
+  cairo_set_font_size(cr, 20);
+  cairo_text_extents(cr, deg, &extents);
+
+  float halfText = extents.width/2;
+
+  cairo_set_source_rgb(cr, 0,0,0);  
+
+  float textY;
+  if (currDegree<90 || currDegree>270) {
+    textY=y-(extents.height*1.5);
+  } else {
+    textY=y+(extents.height*2.5);
+  }
+  cairo_move_to(cr, x-halfText, textY);
+  cairo_show_text(cr, deg);
+
+  int padTop=3;
+  int padBottom=padTop+1;
+  int padLeft=6;
+  int padRight=padLeft+1;
+
+  cairo_move_to(cr, x-halfText-padLeft,  textY+padBottom);
+  cairo_line_to(cr, x+halfText+padRight, textY+padBottom);
+  cairo_line_to(cr, x+halfText+padRight, textY-extents.height-padTop);
+  cairo_line_to(cr, x-halfText-padLeft,  textY-extents.height-padTop);
+  cairo_close_path (cr);
+  cairo_stroke(cr);
+
   cairo_destroy(cr);
 //   displayLock.unlock();
 
@@ -679,7 +726,6 @@ void renderCompass() {
       } catch (...) {
         logger.warn("unhandled exception in renderCompass");
       }
-      updateTextBox(translateRotor2Display(currDegree), false);
     }
   }
 }
@@ -754,8 +800,7 @@ void timeUpdate() {
       strftime(localDateBuffer, sizeof(localDateBuffer), "%Y/%m/%d", localtime(&currentTime.tv_sec));
     }
 
-    updateTextLock.lock();
-    g_idle_add(textBoxWidgetUpdate, nullptr);
+    g_idle_add(timeWidgetUpdate, nullptr);
     
     sleep(1);
   }
