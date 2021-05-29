@@ -61,6 +61,7 @@ atomic<bool> stoppingRotor{false};
 Logger     logger("main");
 
 atomic<bool> isSettingsDialogueActive{false};
+atomic<bool> calledHideSettings{false};
 
 GtkWidget *drawingArea=nullptr;
 GtkWidget *timeWindow=nullptr;
@@ -1027,6 +1028,7 @@ int hideSettings(gpointer data) {
   logger.info("hide settings");
   gtk_window_close(settingsWindow);
   isSettingsDialogueActive=false;
+  calledHideSettings=false;
   return FALSE;
 }
 
@@ -1065,23 +1067,37 @@ int showSettings(gpointer data) {
     button = gtk_builder_get_object (uiBuilder, "CancelSettingsButton");
     g_signal_connect (button, "clicked", G_CALLBACK (cancelSettings), NULL);
 
+    button = gtk_builder_get_object (uiBuilder, "CancelSettingsButton");
+    g_signal_connect (button, "clicked", G_CALLBACK (cancelSettings), NULL);
+
+
+    // listBox = gtk_builder_get_object (uiBuilder, "TimezoneListBox");
+
+    // auto country_store = Gtk.ListStore(str)
+
+
+
     // if (options.fullscreen) {
     //     gtk_window_fullscreen(GTK_WINDOW(settingsWindow));
     // }
-
-
     gtk_widget_show_all((GtkWidget*)settingsWindow);
 
     return FALSE;
 }
 
-void settingsDialogue() {
-    bool expected=false;
 
-    while (!isSettingsDialogueActive.compare_exchange_weak(expected, true)) {
-      hideSettings(nullptr);
-      delay(50);
+void settingsDialogue() {
+    bool expected1=false;
+    bool expected2=false;
+
+    if (!isSettingsDialogueActive.compare_exchange_weak(expected1, true)) {
+
+      if (!calledHideSettings.compare_exchange_weak(expected2, true)) {
+        hideSettings(nullptr);
+      }
+      return;
     }
+
     logger.info("start settigs dialogue");
     g_idle_add(showSettings, nullptr);
 

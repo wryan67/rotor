@@ -8,7 +8,7 @@ make
 [ $? != 0 ] && exit 2
 
 echo copy binary
-for FILE in bin/* gtk/*
+for FILE in bin/* gtk/*.ui gtk/*.css
 do 
   ONE=`echo $FILE | cut -c1`
   [ "$ONE" = "#" ] && continue
