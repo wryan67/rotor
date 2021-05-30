@@ -81,8 +81,9 @@ GtkLabel  *localDate=nullptr;
 char       localTimeBuffer[512];
 char       localDateBuffer[512];
 
-GtkComboBoxText *timezoneListBox;
 GtkComboBoxText *countryListBox;
+GtkListBox *timezoneListBox;
+vector<string> timezones;
 
 float rotorDegree=0;
 bool  forceCompassRedraw=false;
@@ -1040,10 +1041,18 @@ void cancelSettings() {
 
 void saveSettings() {
     logger.info("save settings");
-    
-    char* selection = gtk_combo_box_text_get_active_text (timezoneListBox);
 
-    logger.info("new timezone: %s",selection);
+    auto sel = gtk_list_box_get_selected_row(timezoneListBox);
+    
+    if (sel!=nullptr) {
+      auto row = gtk_list_box_row_get_index(sel);
+
+
+      logger.info("new timezone: %s",timezones[row].c_str());
+
+    }
+    // char* selection = gtk_combo_box_text_get_active_text (timezoneListBox);
+
 
     g_idle_add(hideSettings, nullptr);
 
@@ -1080,7 +1089,7 @@ int showSettings(gpointer data) {
 
     countryListBox = (GtkComboBoxText*) gtk_builder_get_object (uiBuilder, "CountryListBox");
 
-    timezoneListBox = (GtkComboBoxText*) gtk_builder_get_object (uiBuilder, "TimezoneListBox");
+    timezoneListBox = (GtkListBox*) gtk_builder_get_object (uiBuilder, "TimezoneListBox");
 
     FILE* timezoneInput = popen("timedatectl | sed -ne 's/.*Time zone: *\\([^ ]*\\) (.*)$/\\1/p'", "r");
 
@@ -1094,6 +1103,7 @@ int showSettings(gpointer data) {
     }
 
 
+    logger.info("current country:  %s",currCountry);
     logger.info("current timezone: %s",currTimezone);
 
     timezoneInput = popen("timedatectl list-timezones | awk -F/ '{print $1}' | sort -u", "r");
@@ -1116,17 +1126,32 @@ int showSettings(gpointer data) {
 
     timezoneInput = popen("timedatectl list-timezones", "r");
 
+    timezones.clear();
+    int selectedRow=-1;
     options=-1;
     while (fgets(buf, sizeof(buf), timezoneInput) != nullptr) {
-      ++options;
       buf[strlen(buf)-1]=0;
-      gtk_combo_box_text_append_text(timezoneListBox, buf);
-      if (strcmp(currTimezone,buf)==0) {
+
+      if (strncmp(buf, currCountry, strlen(currCountry))!=0) {
+        continue;
+      }
+      ++options;
+      auto label = gtk_label_new(buf);
+      gtk_label_set_xalign ((GtkLabel*)label, 0);
+      gtk_list_box_insert(timezoneListBox, label, options);
+      timezones.push_back(buf);
+//        gtk_combo_box_text_append_text(timezoneListBox, buf);
+      if (strcmp(buf, currTimezone)==0) {
         logger.info("i=%d; tz: %s", options, buf);
-        gtk_combo_box_set_active((GtkComboBox*)timezoneListBox,options);
+        selectedRow = options;
+//        gtk_combo_box_set_active((GtkComboBox*)timezoneListBox,options);
       }
     }
-
+    if (selectedRow>=0) {
+        logger.info("setting selected row to: %d", selectedRow);
+        auto row = gtk_list_box_get_row_at_index(timezoneListBox, selectedRow);
+        gtk_list_box_select_row(timezoneListBox, row);
+    }
     fclose(timezoneInput);
 
 

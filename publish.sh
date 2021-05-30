@@ -4,26 +4,20 @@ ROTOR_USER=pi
 ROTOR_PI=$ROTOR_USER@rotor2
 
 echo compile
-make
-[ $? != 0 ] && exit 2
+if [ "$1" != "-c" ];then
+  make
+  [ $? != 0 ] && exit 2
+fi
 
-echo copy binary
-for FILE in bin/* gtk/*.ui gtk/*.css
-do 
-  ONE=`echo $FILE | cut -c1`
-  [ "$ONE" = "#" ] && continue
-  scp $FILE $ROTOR_PI:/home/$ROTOR_USER/bin || exit $?
-done
+echo copy files
+tar cf /tmp/rotor.tar fonts/*.ttf \
+                      -C bin . \
+                      -C ../gtk `cd gtk; ls *.ui *.css` \
+                      -C ../scripts deploy.sh 
+                      
+scp /tmp/rotor.tar $ROTOR_PI:/tmp/rotor.tar || exit $?
 
-echo set permissions
-ssh $ROTOR_PI sudo chmod g+w /home/$ROTOR_USER/bin/rotor 
-ssh $ROTOR_PI sudo chown root /home/$ROTOR_USER/bin/rotor
-ssh $ROTOR_PI sudo chmod u+s /home/$ROTOR_USER/bin/rotor
+echo set permissions/deploy
+ssh $ROTOR_PI "mkdir -p /home/$ROTOR_USER/bin; cd /home/$ROTOR_USER/bin && tar xf /tmp/rotor.tar"
+ssh $ROTOR_PI /home/$ROTOR_USER/bin/deploy.sh
 
-echo copy fonts
-for FILE in fonts/*
-do 
-  ssh $ROTOR_PI sudo mkdir -p /usr/share/fonts/truetype/user 
-  ssh $ROTOR_PI sudo chmod 777 /usr/share/fonts/truetype/user 
-  scp "$FILE" $ROTOR_PI:/usr/share/fonts/truetype/user
-done
