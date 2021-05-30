@@ -84,6 +84,7 @@ char       localDateBuffer[512];
 GtkComboBoxText *countryListBox;
 GtkListBox *timezoneListBox;
 vector<string> timezones;
+char currTimezone[4096];
 
 float rotorDegree=0;
 bool  forceCompassRedraw=false;
@@ -1039,92 +1040,20 @@ void cancelSettings() {
     g_idle_add(hideSettings, nullptr);
 }
 
-void saveSettings() {
-    logger.info("save settings");
-
-    auto sel = gtk_list_box_get_selected_row(timezoneListBox);
-    
-    if (sel!=nullptr) {
-      auto row = gtk_list_box_row_get_index(sel);
-
-
-      logger.info("new timezone: %s",timezones[row].c_str());
-
-    }
-    // char* selection = gtk_combo_box_text_get_active_text (timezoneListBox);
-
-
-    g_idle_add(hideSettings, nullptr);
-
+void gtk_widget_destroy_noarg(GtkWidget *widget, void*noarg) {
+  gtk_widget_destroy(widget);
 }
 
-int showSettings(gpointer data) {
-    logger.info("show settings");
-    GtkBuilder *uiBuilder;
-    GObject    *button;
-    GError     *error=nullptr;
+int updateTimezones(gpointer data) {
+    logger.info("timezones update");
     char buf[4096];
-    char currTimezone[4096];
-    char currCountry[4096];
+    int options;
 
-    /* Construct a GtkBuilder instance and load our UI description */
-    uiBuilder = gtk_builder_new ();
-    if (gtk_builder_add_from_file (uiBuilder, "settings.ui", &error) == 0) {
-        g_printerr ("Error loading file: %s\n", error->message);
-        g_clear_error (&error);
-        return 1;
-    }
+    FILE *timezoneInput = popen("timedatectl list-timezones", "r");
 
-    settingsWindow = (GtkWindow*) gtk_builder_get_object (uiBuilder, "SettingsWindow");
-    g_signal_connect (settingsWindow, "destroy", G_CALLBACK (cancelSettings), NULL);
+    char *currCountry = gtk_combo_box_text_get_active_text(countryListBox);
 
-    button = gtk_builder_get_object (uiBuilder, "SaveSettingsButton");
-    g_signal_connect (button, "clicked", G_CALLBACK (saveSettings), NULL);
-
-    button = gtk_builder_get_object (uiBuilder, "CancelSettingsButton");
-    g_signal_connect (button, "clicked", G_CALLBACK (cancelSettings), NULL);
-
-    button = gtk_builder_get_object (uiBuilder, "CancelSettingsButton");
-    g_signal_connect (button, "clicked", G_CALLBACK (cancelSettings), NULL);
-
-    countryListBox = (GtkComboBoxText*) gtk_builder_get_object (uiBuilder, "CountryListBox");
-
-    timezoneListBox = (GtkListBox*) gtk_builder_get_object (uiBuilder, "TimezoneListBox");
-
-    FILE* timezoneInput = popen("timedatectl | sed -ne 's/.*Time zone: *\\([^ ]*\\) (.*)$/\\1/p'", "r");
-
-    fgets(currTimezone,sizeof(currTimezone),timezoneInput);
-    currTimezone[strlen(currTimezone)-1]=0;
-    fclose(timezoneInput);
-
-    memset(currCountry,0,sizeof(currCountry));
-    for (int i=0; currTimezone[i]!=0 && currTimezone[i]!='/';++i) {
-      currCountry[i]=currTimezone[i];
-    }
-
-
-    logger.info("current country:  %s",currCountry);
-    logger.info("current timezone: %s",currTimezone);
-
-    timezoneInput = popen("timedatectl list-timezones | awk -F/ '{print $1}' | sort -u", "r");
-
-    int options=-1;
-    while (fgets(buf, sizeof(buf), timezoneInput) != nullptr) {
-      ++options;
-      buf[strlen(buf)-1]=0;
-      gtk_combo_box_text_append_text(countryListBox, buf);
-      if (strcmp(currCountry,buf)==0) {
-        logger.info("i=%d; country: %s", options, buf);
-        gtk_combo_box_set_active((GtkComboBox*)countryListBox,options);
-      }
-    }
-
-    
-
-    fclose(timezoneInput);
-
-
-    timezoneInput = popen("timedatectl list-timezones", "r");
+    gtk_container_foreach((GtkContainer *)timezoneListBox, gtk_widget_destroy_noarg, nullptr);
 
     timezones.clear();
     int selectedRow=-1;
@@ -1153,6 +1082,106 @@ int showSettings(gpointer data) {
         gtk_list_box_select_row(timezoneListBox, row);
     }
     fclose(timezoneInput);
+
+    gtk_widget_show_all((GtkWidget*)timezoneListBox);
+
+  return FALSE;
+}
+
+
+void saveSettings() {
+    logger.info("save settings");
+
+    auto sel = gtk_list_box_get_selected_row(timezoneListBox);
+    
+    if (sel!=nullptr) {
+      auto row = gtk_list_box_row_get_index(sel);
+
+      char cmd[4096];
+
+      sprintf(cmd,"sudo timedatectl set-timezone '%s'", timezones[row].c_str());
+
+      system(cmd);
+
+      logger.info("new timezone: %s",timezones[row].c_str());
+
+    }
+    // char* selection = gtk_combo_box_text_get_active_text (timezoneListBox);
+
+
+    g_idle_add(hideSettings, nullptr);
+
+}
+
+int showSettings(gpointer data) {
+    logger.info("show settings");
+    GtkBuilder *uiBuilder;
+    GObject    *button;
+    GError     *error=nullptr;
+    char buf[4096];
+
+    /* Construct a GtkBuilder instance and load our UI description */
+    uiBuilder = gtk_builder_new ();
+    if (gtk_builder_add_from_file (uiBuilder, "settings.ui", &error) == 0) {
+        g_printerr ("Error loading file: %s\n", error->message);
+        g_clear_error (&error);
+        return 1;
+    }
+
+    settingsWindow = (GtkWindow*) gtk_builder_get_object (uiBuilder, "SettingsWindow");
+    g_signal_connect (settingsWindow, "destroy", G_CALLBACK (cancelSettings), NULL);
+
+    button = gtk_builder_get_object (uiBuilder, "SaveSettingsButton");
+    g_signal_connect (button, "clicked", G_CALLBACK (saveSettings), NULL);
+
+    button = gtk_builder_get_object (uiBuilder, "CancelSettingsButton");
+    g_signal_connect (button, "clicked", G_CALLBACK (cancelSettings), NULL);
+
+    button = gtk_builder_get_object (uiBuilder, "CancelSettingsButton");
+    g_signal_connect (button, "clicked", G_CALLBACK (cancelSettings), NULL);
+
+
+    countryListBox = (GtkComboBoxText*) gtk_builder_get_object (uiBuilder, "CountryListBox");
+    g_signal_connect (countryListBox, "changed", G_CALLBACK (updateTimezones), NULL);
+
+
+    timezoneListBox = (GtkListBox*) gtk_builder_get_object (uiBuilder, "TimezoneListBox");
+
+    FILE* timezoneInput = popen("timedatectl | sed -ne 's/.*Time zone: *\\([^ ]*\\) (.*)$/\\1/p'", "r");
+
+    fgets(currTimezone,sizeof(currTimezone),timezoneInput);
+    currTimezone[strlen(currTimezone)-1]=0;
+    fclose(timezoneInput);
+
+    char currCountry[4096];
+
+    memset(currCountry,0,sizeof(currCountry));
+    for (int i=0; currTimezone[i]!=0 && currTimezone[i]!='/';++i) {
+      currCountry[i]=currTimezone[i];
+    }
+
+
+    logger.info("current country:  %s",currCountry);
+    logger.info("current timezone: %s",currTimezone);
+
+    timezoneInput = popen("timedatectl list-timezones | awk -F/ '{print $1}' | sort -u", "r");
+
+    int options=-1;
+    while (fgets(buf, sizeof(buf), timezoneInput) != nullptr) {
+      ++options;
+      buf[strlen(buf)-1]=0;
+      gtk_combo_box_text_append_text(countryListBox, buf);
+      if (strcmp(currCountry,buf)==0) {
+        logger.info("i=%d; country: %s", options, buf);
+        gtk_combo_box_set_active((GtkComboBox*)countryListBox,options);
+      }
+    }
+
+    fclose(timezoneInput);
+
+
+    g_idle_add(updateTimezones, nullptr);
+
 
 
     // if (options.fullscreen) {
