@@ -1038,11 +1038,13 @@ int hideSettings(gpointer data) {
 
 void cancelSettings() {
     logger.info("cancel settings");
-    hideSettings(nullptr);
+    gtk_window_close(settingsWindow);
+    isSettingsDialogueActive=false;
+    calledHideSettings=false;
 }
 
 void gtk_widget_destroy_noarg(GtkWidget *widget, void*noarg) {
-  gtk_widget_destroy(widget);
+    gtk_widget_destroy(widget);
 }
 
 struct scollStuffStruct {
@@ -1055,34 +1057,27 @@ int timezoneScroller(gpointer data) {
   scrollStuff *stuff = (scrollStuff*)data;
 
   logger.info("timezone scroller; selectedRow=%d", stuff->selectedRow);
+
+  auto adjuster = gtk_list_box_get_adjustment(timezoneListBox);
+  gdouble pageSize = gtk_adjustment_get_page_size(adjuster);
+
   if (stuff->selectedRow<0) {
-    return FALSE;
+    logger.info("scroll to top");
+    stuff->selectedRow=0;
   }
 
+  gint wx, wy=0;
+  gint mh, nh;
 
   auto row = gtk_list_box_get_row_at_index(timezoneListBox, stuff->selectedRow);
 
-
-  gint wx, wy=0;
-
-    gtk_widget_translate_coordinates((GtkWidget*)row, gtk_widget_get_toplevel((GtkWidget*)timezoneListBox), 0, 0, &wx, &wy);
-
-
-
-  auto adjuster = gtk_list_box_get_adjustment(timezoneListBox);
-
-  gdouble pageSize = gtk_adjustment_get_page_size(adjuster);
-
-  int mh, nh;
   gtk_widget_get_preferred_height((GtkWidget*)row, &mh, &nh);
+  gtk_widget_translate_coordinates((GtkWidget*)row, gtk_widget_get_toplevel((GtkWidget*)timezoneListBox), 0, 0, &wx, &wy);
 
-  double adjustment=(double)wy - (pageSize - (double)nh)/2.0;
-
+  double adjustment = wy - (pageSize - nh)/2.0;
   gtk_adjustment_set_value(adjuster, adjustment);
 
- // gtk_widget_show_all((GtkWidget*)timezoneListBox);
-  logger.info("pageSize=%.0f; wy=%ld; mh=%d nh=%d; adj=%.16f", pageSize, (long)wy, mh, nh, adjustment);
-
+  logger.info("pageSize=%.0f; wy=%ld; mh=%d nh=%d; adj=%.0f", pageSize, (long)wy, mh, nh, adjustment);
 
   return FALSE;
 }
@@ -1136,12 +1131,10 @@ int updateTimezones(gpointer data) {
 
     gtk_widget_show_all((GtkWidget*)timezoneListBox);
 
-    if (selectedRow>=0) {
-        scrollStuff *stuff = new scrollStuff;
-        stuff->selectedRow = selectedRow;
-        g_idle_add(timezoneScroller,stuff);
-    }
+    scrollStuff *stuff = new scrollStuff;
+    stuff->selectedRow = selectedRow;
 
+    g_idle_add(timezoneScroller,stuff);
 
   return FALSE;
 }
@@ -1263,6 +1256,7 @@ void settingsDialogue() {
     if (!isSettingsDialogueActive.compare_exchange_weak(expected1, true)) {
 
       if (!calledHideSettings.compare_exchange_weak(expected2, true)) {
+        logger.info("tag 1000");
         hideSettings(nullptr);
       }
       return;
