@@ -34,7 +34,8 @@
             <property name="can_focus">True</property>
             <property name="hscrollbar_policy">never</property>
             <property name="shadow_type">in</property>
-            <property name="max_content_height">280</property>
+            <property name="min_content_height">290</property>
+            <property name="max_content_height">290</property>
             <child>
               <object class="GtkViewport">
                 <property name="visible">True</property>
@@ -74,7 +75,8 @@
             <property name="margin_left">15</property>
             <property name="hscrollbar_policy">never</property>
             <property name="shadow_type">in</property>
-            <property name="max_content_height">280</property>
+            <property name="min_content_height">290</property>
+            <property name="max_content_height">290</property>
             <property name="propagate_natural_width">True</property>
             <property name="propagate_natural_height">True</property>
             <child>
