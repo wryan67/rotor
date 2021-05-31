@@ -1045,6 +1045,37 @@ void gtk_widget_destroy_noarg(GtkWidget *widget, void*noarg) {
   gtk_widget_destroy(widget);
 }
 
+struct scollStuffStruct {
+  int selectedRow;
+};
+
+typedef scollStuffStruct scrollStuff;
+
+int timezoneScroller(gpointer data) {
+  scrollStuff *stuff = (scrollStuff*)data;
+
+  logger.info("timezone scroller; selectedRow=%d", stuff->selectedRow);
+
+  auto row = gtk_list_box_get_row_at_index(timezoneListBox, stuff->selectedRow);
+  gint wx, wy;
+  gtk_widget_translate_coordinates((GtkWidget*)row, gtk_widget_get_toplevel((GtkWidget*)timezoneListBox), 0, 0, &wx, &wy);
+
+  auto adj = gtk_list_box_get_adjustment(timezoneListBox);
+
+  auto pageSize = gtk_adjustment_get_page_size(adj);
+
+  int mh, nh;
+  gtk_widget_get_preferred_height((GtkWidget*)row, &mh, &nh);
+
+  gtk_adjustment_set_value(adj, wy - (pageSize - nh)/2);
+
+  // gtk_widget_show_all((GtkWidget*)timezoneListBox);
+
+
+  return FALSE;
+}
+
+
 int updateTimezones(gpointer data) {
     logger.info("timezones update");
     char buf[4096];
@@ -1092,6 +1123,13 @@ int updateTimezones(gpointer data) {
     fclose(timezoneInput);
 
     gtk_widget_show_all((GtkWidget*)timezoneListBox);
+
+    if (selectedRow>=0) {
+        scrollStuff *stuff = new scrollStuff;
+        stuff->selectedRow = selectedRow;
+        g_idle_add(timezoneScroller,stuff);
+    }
+
 
   return FALSE;
 }
@@ -1195,7 +1233,6 @@ int showSettings(gpointer data) {
 
 
     g_idle_add(updateTimezones, nullptr);
-
 
 
     // if (options.fullscreen) {
