@@ -81,9 +81,10 @@ GtkLabel  *localDate=nullptr;
 char       localTimeBuffer[512];
 char       localDateBuffer[512];
 
-GtkComboBoxText *countryListBox;
+GtkListBox *countryListBox;
 GtkListBox *timezoneListBox;
 vector<string> timezones;
+vector<string> countries;
 char currTimezone[4096];
 
 float rotorDegree=0;
@@ -1048,11 +1049,18 @@ int updateTimezones(gpointer data) {
     logger.info("timezones update");
     char buf[4096];
     int options;
+    const char *currCountry=nullptr;
 
     FILE *timezoneInput = popen("timedatectl list-timezones", "r");
 
-    char *currCountry = gtk_combo_box_text_get_active_text(countryListBox);
+    auto sel = gtk_list_box_get_selected_row(countryListBox);
+    if (sel!=nullptr) {
+      auto row = gtk_list_box_row_get_index(sel);
 
+      currCountry = countries[row].c_str();
+    } else {
+      return FALSE;
+    }
     gtk_container_foreach((GtkContainer *)timezoneListBox, gtk_widget_destroy_noarg, nullptr);
 
     timezones.clear();
@@ -1065,15 +1073,15 @@ int updateTimezones(gpointer data) {
         continue;
       }
       ++options;
-      auto label = gtk_label_new(buf);
+      char *slash=strstr(buf,"/");
+      int offset=(slash==0)?0:slash-(&buf[0])+1;
+      auto label = gtk_label_new(&buf[offset]);
       gtk_label_set_xalign ((GtkLabel*)label, 0);
       gtk_list_box_insert(timezoneListBox, label, options);
       timezones.push_back(buf);
-//        gtk_combo_box_text_append_text(timezoneListBox, buf);
       if (strcmp(buf, currTimezone)==0) {
         logger.info("i=%d; tz: %s", options, buf);
         selectedRow = options;
-//        gtk_combo_box_set_active((GtkComboBox*)timezoneListBox,options);
       }
     }
     if (selectedRow>=0) {
@@ -1141,8 +1149,8 @@ int showSettings(gpointer data) {
     g_signal_connect (button, "clicked", G_CALLBACK (cancelSettings), NULL);
 
 
-    countryListBox = (GtkComboBoxText*) gtk_builder_get_object (uiBuilder, "CountryListBox");
-    g_signal_connect (countryListBox, "changed", G_CALLBACK (updateTimezones), NULL);
+    countryListBox = (GtkListBox*) gtk_builder_get_object (uiBuilder, "CountryListBox");
+    g_signal_connect (countryListBox, "row-selected", G_CALLBACK (updateTimezones), NULL);
 
 
     timezoneListBox = (GtkListBox*) gtk_builder_get_object (uiBuilder, "TimezoneListBox");
@@ -1170,10 +1178,16 @@ int showSettings(gpointer data) {
     while (fgets(buf, sizeof(buf), timezoneInput) != nullptr) {
       ++options;
       buf[strlen(buf)-1]=0;
-      gtk_combo_box_text_append_text(countryListBox, buf);
+      countries.push_back(buf);
+      auto label = gtk_label_new(buf);
+      gtk_label_set_xalign ((GtkLabel*)label, 0);
+      gtk_list_box_insert(countryListBox, label, options);
+
+
       if (strcmp(currCountry,buf)==0) {
         logger.info("i=%d; country: %s", options, buf);
-        gtk_combo_box_set_active((GtkComboBox*)countryListBox,options);
+        auto row = gtk_list_box_get_row_at_index(countryListBox,options);
+        gtk_list_box_select_row(countryListBox,row);
       }
     }
 
