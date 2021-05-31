@@ -81,6 +81,7 @@ GtkLabel  *localDate=nullptr;
 char       localTimeBuffer[512];
 char       localDateBuffer[512];
 
+GtkWindow  *settingsWindow;
 GtkListBox *countryListBox;
 GtkListBox *timezoneListBox;
 vector<string> timezones;
@@ -1025,11 +1026,9 @@ void programStop() {
 }
 
 
-GtkWindow    *settingsWindow;
 
 
 int hideSettings(gpointer data) {
-  logger.info("hide settings");
   gtk_window_close(settingsWindow);
   isSettingsDialogueActive=false;
   calledHideSettings=false;
@@ -1037,10 +1036,7 @@ int hideSettings(gpointer data) {
 }
 
 void cancelSettings() {
-    logger.info("cancel settings");
-    gtk_window_close(settingsWindow);
-    isSettingsDialogueActive=false;
-    calledHideSettings=false;
+  hideSettings(nullptr);
 }
 
 void gtk_widget_destroy_noarg(GtkWidget *widget, void*noarg) {
@@ -1056,13 +1052,10 @@ typedef scollStuffStruct scrollStuff;
 int timezoneScroller(gpointer data) {
   scrollStuff *stuff = (scrollStuff*)data;
 
-  logger.info("timezone scroller; selectedRow=%d", stuff->selectedRow);
-
   auto adjuster = gtk_list_box_get_adjustment(timezoneListBox);
   gdouble pageSize = gtk_adjustment_get_page_size(adjuster);
 
   if (stuff->selectedRow<0) {
-    logger.info("scroll to top");
     stuff->selectedRow=0;
   }
 
@@ -1077,14 +1070,13 @@ int timezoneScroller(gpointer data) {
   double adjustment = wy - (pageSize - nh)/2.0;
   gtk_adjustment_set_value(adjuster, adjustment);
 
-  logger.info("pageSize=%.0f; wy=%ld; mh=%d nh=%d; adj=%.0f", pageSize, (long)wy, mh, nh, adjustment);
+  // logger.info("pageSize=%.0f; wy=%ld; mh=%d nh=%d; adj=%.0f", pageSize, (long)wy, mh, nh, adjustment);
 
   return FALSE;
 }
 
 
 int updateTimezones(gpointer data) {
-    logger.info("timezones update");
     char buf[4096];
     int options;
     const char *currCountry=nullptr;
@@ -1118,12 +1110,10 @@ int updateTimezones(gpointer data) {
       gtk_list_box_insert(timezoneListBox, label, options);
       timezones.push_back(buf);
       if (strcmp(buf, currTimezone)==0) {
-        logger.info("i=%d; tz: %s", options, buf);
         selectedRow = options;
       }
     }
     if (selectedRow>=0) {
-        logger.info("setting selected row to: %d", selectedRow);
         auto row = gtk_list_box_get_row_at_index(timezoneListBox, selectedRow);
         gtk_list_box_select_row(timezoneListBox, row);
     }
@@ -1141,7 +1131,6 @@ int updateTimezones(gpointer data) {
 
 
 void saveSettings() {
-    logger.info("save settings");
 
     auto sel = gtk_list_box_get_selected_row(timezoneListBox);
     
@@ -1165,7 +1154,6 @@ void saveSettings() {
 }
 
 int showSettings(gpointer data) {
-    logger.info("show settings");
     GtkBuilder *uiBuilder;
     GObject    *button;
     GError     *error=nullptr;
@@ -1196,8 +1184,6 @@ int showSettings(gpointer data) {
       currCountry[i]=currTimezone[i];
     }
 
-
-    logger.info("current country:  %s",currCountry);
     logger.info("current timezone: %s",currTimezone);
 
     timezoneInput = popen("timedatectl list-timezones | awk -F/ '{print $1}' | sort -u", "r");
@@ -1215,25 +1201,14 @@ int showSettings(gpointer data) {
 
 
       if (strcmp(currCountry,buf)==0) {
-        logger.info("i=%d; country: %s", options, buf);
         row = gtk_list_box_get_row_at_index(countryListBox,options);
         gtk_list_box_select_row(countryListBox,row);
       }
     }
 
     fclose(timezoneInput);
-
-
     updateTimezones(nullptr);
-
-
-    // if (options.fullscreen) {
-    //     gtk_window_fullscreen(GTK_WINDOW(settingsWindow));
-    // }
     gtk_widget_show_all((GtkWidget*)settingsWindow);
-
-    if (row!=nullptr) {
-    }
 
 
     button = gtk_builder_get_object (uiBuilder, "SaveSettingsButton");
@@ -1254,26 +1229,21 @@ void settingsDialogue() {
     bool expected2=false;
 
     if (!isSettingsDialogueActive.compare_exchange_weak(expected1, true)) {
-
       if (!calledHideSettings.compare_exchange_weak(expected2, true)) {
-        logger.info("tag 1000");
         hideSettings(nullptr);
       }
       return;
     }
 
-    logger.info("start settigs dialogue");
     g_idle_add(showSettings, nullptr);
-
-
 }
 
 static gboolean compassClick(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
 
 // double click = GDK_2BUTTON_PRESS
-
-    if (event->type == GDK_BUTTON_PRESS) {
-      logger.info("mouse double click button <%d> @ (%.0f,%.0f)", event->button, event->x, event->y);
+    double breakpoint = screenWidth/3.0;
+    if (event->type == GDK_BUTTON_PRESS && event->x < breakpoint) {
+      // logger.info("mouse click button <%d> @ (%.0f,%.0f); breakpoint=%f; screenWidth=%d", event->button, event->x, event->y, breakpoint, screenWidth);
 
       settingsDialogue();
     }
