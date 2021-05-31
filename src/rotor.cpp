@@ -1055,21 +1055,38 @@ int timezoneScroller(gpointer data) {
   scrollStuff *stuff = (scrollStuff*)data;
 
   logger.info("timezone scroller; selectedRow=%d", stuff->selectedRow);
+  if (stuff->selectedRow<0) {
+    return FALSE;
+  }
+
 
   auto row = gtk_list_box_get_row_at_index(timezoneListBox, stuff->selectedRow);
-  gint wx, wy;
-  gtk_widget_translate_coordinates((GtkWidget*)row, gtk_widget_get_toplevel((GtkWidget*)timezoneListBox), 0, 0, &wx, &wy);
 
-  auto adj = gtk_list_box_get_adjustment(timezoneListBox);
 
-  auto pageSize = gtk_adjustment_get_page_size(adj);
+  gint wx, wy=0;
+
+    gtk_widget_translate_coordinates((GtkWidget*)row, gtk_widget_get_toplevel((GtkWidget*)timezoneListBox), 0, 0, &wx, &wy);
+
+    if (wy<25) {
+      delay(250);
+      gtk_widget_translate_coordinates((GtkWidget*)row, gtk_widget_get_toplevel((GtkWidget*)timezoneListBox), 0, 0, &wx, &wy);
+    }
+
+
+
+  auto adjuster = gtk_list_box_get_adjustment(timezoneListBox);
+
+  gdouble pageSize = gtk_adjustment_get_page_size(adjuster);
 
   int mh, nh;
   gtk_widget_get_preferred_height((GtkWidget*)row, &mh, &nh);
 
-  gtk_adjustment_set_value(adj, wy - (pageSize - nh)/2);
+  double adjustment=(double)wy - (pageSize - (double)nh)/2.0;
 
-  // gtk_widget_show_all((GtkWidget*)timezoneListBox);
+  gtk_adjustment_set_value(adjuster, adjustment);
+
+ // gtk_widget_show_all((GtkWidget*)timezoneListBox);
+  logger.info("pageSize=%.0f; wy=%ld; mh=%d nh=%d; adj=%.16f", pageSize, (long)wy, mh, nh, adjustment);
 
 
   return FALSE;
@@ -1264,8 +1281,9 @@ void settingsDialogue() {
 
 static gboolean compassClick(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
 
+// double click = GDK_2BUTTON_PRESS
 
-    if (event->type == GDK_2BUTTON_PRESS) {
+    if (event->type == GDK_BUTTON_PRESS) {
       logger.info("mouse double click button <%d> @ (%.0f,%.0f)", event->button, event->x, event->y);
 
       settingsDialogue();
