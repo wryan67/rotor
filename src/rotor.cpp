@@ -1038,7 +1038,7 @@ int hideSettings(gpointer data) {
 
 void cancelSettings() {
     logger.info("cancel settings");
-    g_idle_add(hideSettings, nullptr);
+    hideSettings(nullptr);
 }
 
 void gtk_widget_destroy_noarg(GtkWidget *widget, void*noarg) {
@@ -1066,11 +1066,6 @@ int timezoneScroller(gpointer data) {
   gint wx, wy=0;
 
     gtk_widget_translate_coordinates((GtkWidget*)row, gtk_widget_get_toplevel((GtkWidget*)timezoneListBox), 0, 0, &wx, &wy);
-
-    if (wy<25) {
-      delay(250);
-      gtk_widget_translate_coordinates((GtkWidget*)row, gtk_widget_get_toplevel((GtkWidget*)timezoneListBox), 0, 0, &wx, &wy);
-    }
 
 
 
@@ -1191,23 +1186,8 @@ int showSettings(gpointer data) {
         return 1;
     }
 
-    settingsWindow = (GtkWindow*) gtk_builder_get_object (uiBuilder, "SettingsWindow");
-    g_signal_connect (settingsWindow, "destroy", G_CALLBACK (cancelSettings), NULL);
-
-    button = gtk_builder_get_object (uiBuilder, "SaveSettingsButton");
-    g_signal_connect (button, "clicked", G_CALLBACK (saveSettings), NULL);
-
-    button = gtk_builder_get_object (uiBuilder, "CancelSettingsButton");
-    g_signal_connect (button, "clicked", G_CALLBACK (cancelSettings), NULL);
-
-    button = gtk_builder_get_object (uiBuilder, "CancelSettingsButton");
-    g_signal_connect (button, "clicked", G_CALLBACK (cancelSettings), NULL);
-
-
-    countryListBox = (GtkListBox*) gtk_builder_get_object (uiBuilder, "CountryListBox");
-    g_signal_connect (countryListBox, "row-selected", G_CALLBACK (updateTimezones), NULL);
-
-
+    settingsWindow  = (GtkWindow*)  gtk_builder_get_object (uiBuilder, "SettingsWindow");
+    countryListBox  = (GtkListBox*) gtk_builder_get_object (uiBuilder, "CountryListBox");
     timezoneListBox = (GtkListBox*) gtk_builder_get_object (uiBuilder, "TimezoneListBox");
 
     FILE* timezoneInput = popen("timedatectl | sed -ne 's/.*Time zone: *\\([^ ]*\\) (.*)$/\\1/p'", "r");
@@ -1229,6 +1209,8 @@ int showSettings(gpointer data) {
 
     timezoneInput = popen("timedatectl list-timezones | awk -F/ '{print $1}' | sort -u", "r");
 
+    GtkListBoxRow *row=nullptr;
+    
     int options=-1;
     while (fgets(buf, sizeof(buf), timezoneInput) != nullptr) {
       ++options;
@@ -1241,7 +1223,7 @@ int showSettings(gpointer data) {
 
       if (strcmp(currCountry,buf)==0) {
         logger.info("i=%d; country: %s", options, buf);
-        auto row = gtk_list_box_get_row_at_index(countryListBox,options);
+        row = gtk_list_box_get_row_at_index(countryListBox,options);
         gtk_list_box_select_row(countryListBox,row);
       }
     }
@@ -1249,13 +1231,26 @@ int showSettings(gpointer data) {
     fclose(timezoneInput);
 
 
-    g_idle_add(updateTimezones, nullptr);
+    updateTimezones(nullptr);
 
 
     // if (options.fullscreen) {
     //     gtk_window_fullscreen(GTK_WINDOW(settingsWindow));
     // }
     gtk_widget_show_all((GtkWidget*)settingsWindow);
+
+    if (row!=nullptr) {
+    }
+
+
+    button = gtk_builder_get_object (uiBuilder, "SaveSettingsButton");
+    g_signal_connect (button, "clicked", G_CALLBACK (saveSettings), NULL);
+
+    button = gtk_builder_get_object (uiBuilder, "CancelSettingsButton");
+    g_signal_connect (button, "clicked", G_CALLBACK (cancelSettings), NULL);
+    g_signal_connect (settingsWindow, "destroy", G_CALLBACK (cancelSettings), NULL);
+    g_signal_connect (countryListBox, "row-selected", G_CALLBACK (updateTimezones), NULL);
+
 
     return FALSE;
 }
