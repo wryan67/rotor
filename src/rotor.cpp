@@ -1032,6 +1032,7 @@ int hideSettings(gpointer data) {
   gtk_window_close(settingsWindow);
   isSettingsDialogueActive=false;
   calledHideSettings=false;
+  thread(hideMouse).detach();
   return FALSE;
 }
 
@@ -1150,7 +1151,6 @@ void saveSettings() {
 
 
     g_idle_add(hideSettings, nullptr);
-
 }
 
 int showSettings(gpointer data) {
