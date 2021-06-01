@@ -21,3 +21,4 @@ sleep 5
 
 kill -2 $VCPID
 
+echo reccnt: `cat $1 | wc -l`
