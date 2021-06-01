@@ -1,5 +1,9 @@
 Antenna Rotor Controller
 ------------------------
+This program is designed to work with any rotor that uses a variable resistor for it's aspect indicator and limit swithes to prevent turning past the starting/stopping point.  Checkout the readme folder for display pinouts and a [[circuit diagram]](https://raw.githubusercontent.com/wryan67/rotor/main/readme/rotor.png) for the system.
+
+The rotor tested with this software utilizes a 500Ω variable resistor which looks like this:  [[variable resistor]](https://raw.githubusercontent.com/wryan67/rotor/main/readme/aspect%20indicator.jpg)
+
 
 ### Prerequisites:
 
@@ -9,7 +13,25 @@ System Libraries:
     $ sudo apt install glade
     $ sudo apt install xdotool
 
-### GIT Hub software:
+## Requirements
+
+Overclocking the I2C bus is required to achive the desired 2500 samples per second.  Edit the /boot/config.txt file using:
+
+    $ sudo vi /boot/config.txt 
+
+Next, look for the i2c_arm parameter.  Note that if you've already enable the i2c bus via raspi-config, then you may have multiple lines in the config.txt file that have i2c_arm.  Look for the one that is uncommented. 
+
+    #dtparam=i2c_arm=on
+    - or -
+    dtparam=i2c_arm=on
+
+Change it to:
+
+    dtparam=i2c_arm=on,i2c_arm_baudrate=400000
+
+
+
+### Required GIT Hub software:
 
 Pleaase read the installation instructions carefully on each github project.  They're all similar, but non necessarially the same. 
 

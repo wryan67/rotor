@@ -8,6 +8,7 @@
 #include <ads1115rpi.h>
 #include <neopixel.h>  
 #include <atomic>
+#include <vector>
 
 #include <time.h>
 #include <sys/time.h>
@@ -58,8 +59,11 @@ atomic<bool> stoppingRotor{false};
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 Logger     logger("main");
-GtkWidget *drawingArea=nullptr;
 
+atomic<bool> isSettingsDialogueActive{false};
+atomic<bool> calledHideSettings{false};
+
+GtkWidget *drawingArea=nullptr;
 GtkWidget *timeWindow=nullptr;
 
 GtkLabel  *utcLabel=nullptr;
@@ -70,7 +74,6 @@ char       utcTimeBuffer[512];
 char       utcDateBuffer[512];
 
 GtkLabel  *timeSeparator=nullptr;
-
 GtkLabel  *localLabel=nullptr;
 GtkLabel  *localTime=nullptr;
 GtkLabel  *localDate=nullptr;
@@ -78,14 +81,18 @@ GtkLabel  *localDate=nullptr;
 char       localTimeBuffer[512];
 char       localDateBuffer[512];
 
-
+GtkWindow  *settingsWindow;
+GtkListBox *countryListBox;
+GtkListBox *timezoneListBox;
+vector<string> timezones;
+vector<string> countries;
+char currTimezone[4096];
 
 float rotorDegree=0;
 bool  forceCompassRedraw=false;
 bool  forceVoltageDebugDisplay=false;
 
 mutex displayLock;
-mutex updateTextLock;
 
 GtkWidget *degreeInputBox;
 
@@ -96,6 +103,12 @@ static void createDrawingSurface(GtkWidget *widget);
 char degreeTextBox[32];
 bool ignoreMargins=false;
 
+int           sampleMode=-1;
+unsigned int  windowSize=0;
+float         totalSampleVolts=0;
+long          totalSamples;
+float         lastDisplayVolts=-9;
+vector<float> samples;
 
 struct directionalType {
   int east,  se, south,   sw, west,  nw, north, ne;
@@ -103,7 +116,7 @@ struct directionalType {
         90, 135,   180,  225,  270, 315,     0, 45
 };
 
-
+float getDegree(float volts);
 
 float translateRotor2Display(float degrees) {
     if (degrees>180) {
@@ -136,35 +149,144 @@ void hideMouse() {
 }
 
 
+void voltageCatcher() {
+
+  float currentVolts   = readVoltage(a2dHandle);
+
+  switch (sampleMode) {
+    case 0: {
+
+      totalSampleVolts+=currentVolts;      
+      samples.push_back(currentVolts);
+
+      auto oldestSample = samples.at(0);
+      totalSampleVolts-=oldestSample;
+      samples.erase(samples.begin());
+
+      float volts = totalSampleVolts / (float)windowSize;
+
+      float newDegree = getDegree(volts);
+
+      if (abs(newDegree)>360) {
+          newDegree=360;
+      }
+      if (newDegree<0) {
+          newDegree=0;
+      }
+      int lastDegree=rotorDegree;
+      rotorDegree=newDegree;
+
+      if (abs(newDegree-lastDegree)>options.wobbleLimit) {
+          forceVoltageDebugDisplay=true;
+          lastDegree=newDegree;
+      }
+
+      if (abs(volts-lastDisplayVolts)>0.05 || forceVoltageDebugDisplay) {
+          int limitSwitch = digitalRead(options.LimitSwitch);
+
+          logger.debug("bs=%d ls=%d ch[0]=%.3f i-degree=%.1f d-degree=%.0f gain=%d r1=%d", 
+                  getBrakeStatus(), limitSwitch,  volts, newDegree, translateRotor2Display(newDegree), 
+                  options.gain, options.aspectFixedResistorOhms);
+          lastDisplayVolts=volts;
+          forceVoltageDebugDisplay=false;
+      }
+      return;
+    }
+    case 1: {
+      ++windowSize;
+      return;
+    }
+    case 2: {
+      totalSampleVolts+=currentVolts;      
+      samples.push_back(currentVolts);
+
+      if (samples.size()>=windowSize) {
+        sampleMode=0;
+      }      
+    }
+  }
+}
 
 void a2dSetup() {
 
-    a2dHandle = wiringPiI2CSetup(ADS1115_ADDRESS);
+    a2dHandle = getADS1115Handle(ADS1115_ADDRESS);
 
-	if (a2dHandle<0)
-	{
-		fprintf(stderr, "opening ads1115 failed: %s\n", strerror(errno));
-		exit(3);
-	}
+    if (a2dHandle<0) {
+        fprintf(stderr, "opening ads1115 failed: %s\n", strerror(errno));
+        exit(3);
+    }
 
+    float v3 = readVoltageSingleShot(a2dHandle, options.v3channel, 0);
 
-    float v3 = readVoltage(a2dHandle, options.v3channel, 0);
-
-    if (round(v3*10)!=33) {
+    if (abs((3.3-v3)/((3.3+v3)/2))>0.10) {
         for (int c=0;c<4;++c) {
-            float volts = readVoltage(a2dHandle, c, 0);
+            float volts = readVoltageSingleShot(a2dHandle, c, 0);
             logger.info("channel<%d>=%f", c, volts);
         }
         logger.info("a2dHandle=%d; a2d_address=%02x", a2dHandle, ADS1115_ADDRESS);
         logger.info("voltage on channel a%d=%f", options.v3channel, v3);
         logger.error("ads1115 chip is not working; check external power?");
-		exit(4);
+		    exit(4);
     }
 
+    options.sps=5;
+    logger.info("channel=%d; gain=%d; sps=%d", options.aspectVoltageChannel, options.gain, options.sps);
+
+    wiringPiISR(2,INT_EDGE_FALLING, voltageCatcher);
+    setADS1115ContinuousMode(a2dHandle, options.aspectVoltageChannel, options.gain, options.sps);
+
+    float targetPeriods = 3;
+    float sixtyHzPeriod = 1000.0 * ( 1.0 / 60.0); // 1000 ms * 1/60;
+    float targetWindow= round(sixtyHzPeriod * targetPeriods);  //ms
+
+    logger.info("60Hz period = %.1f; targetPeriods=%.0f; targetWindow=%.1fms", sixtyHzPeriod, targetPeriods, targetWindow);
+
+    int   tries=3;
+    float pct;
+    int   expectedSampleWindow = targetWindow * 2500 / 1000;
+
+    while (tries-->0) {
+      delay(500);
+
+      sampleMode=-1;
+      delay(5);
+      windowSize=0;
+      totalSampleVolts=0;
+      totalSamples=0;
+      lastDisplayVolts=-9;
+      samples.clear();
+      forceVoltageDebugDisplay=false;
+
+      sampleMode = 1;
+      usleep(targetWindow*1000);
+      ++sampleMode;
+
+      logger.info("window size = %d", windowSize);
+
+      pct = 100 * ((long)windowSize-expectedSampleWindow) / ((expectedSampleWindow+windowSize)/2.0);
+      if (abs(pct)<=11) {
+        return;
+      }
+      logger.info("retying...");
+    }
+    logger.info("pct=%.0f", pct);
+    logger.info("calculated window size = %d ", windowSize);
+    logger.error("unable to reach target window size of %d.", expectedSampleWindow);
+    if (pct<0) {
+      logger.error("Is your i2c bus overclocked?", expectedSampleWindow);
+    } else {
+      logger.error("Target windows is larger than expected.");
+      logger.error("Unknown error");
+    }
+    exit(19);
 }
 
 int textBoxWidgetUpdate(gpointer data) {
     gtk_entry_set_text(GTK_ENTRY(degreeInputBox), degreeTextBox);
+    return 0;
+}
+
+int timeWidgetUpdate(gpointer data) {
 
     gtk_label_set_text(utcTime, utcTimeBuffer);
     gtk_label_set_text(utcDate, utcDateBuffer);
@@ -172,26 +294,30 @@ int textBoxWidgetUpdate(gpointer data) {
     gtk_label_set_text(localTime, localTimeBuffer);
     gtk_label_set_text(localDate, localDateBuffer);
 
-    updateTextLock.unlock();
     return 0;
 }
 
 
-void updateTextBox(float degree, bool forceRedraw) {
-    updateTextLock.lock();
+void updateTextBox(float degree) {
 
-
-    sprintf(degreeTextBox,"%.1f", degree);
+    sprintf(degreeTextBox,"%.0f", degree);
 
     g_idle_add(textBoxWidgetUpdate, nullptr);
+}
 
+void clearTextBox() {
+
+    degreeTextBox[0]=0;
+
+    g_idle_add(textBoxWidgetUpdate, nullptr);
 }
 
 
 bool hitLimitSwitch() {
     int limitSwitch = digitalRead(options.LimitSwitch);
     if (limitSwitch==1) {
-        logger.debug("Limit switch triggered");
+        logger.info("Limit switch triggered");
+        forceVoltageDebugDisplay=true;
         return true;
     } else {
         return false;
@@ -216,12 +342,10 @@ static void stopRotor(float newDegree) {
 
     delay(100);
     float targetDeviation=rotorDegree-newDegree;
-    if (debug) {
-        forceVoltageDebugDisplay=true;
-        usleep(options.catcherDelay);
-    }
+
     logger.info("rotor parked; rotorDegree=%3.0f; target deviation=%.1f", 
                     rotorDegree, targetDeviation);
+    forceVoltageDebugDisplay=true;
     neopixel_setPixel(operationIndicator, stopColor);
     neopixel_render();
 
@@ -234,6 +358,7 @@ static void stopRotor(float newDegree) {
     } 
     parked=true;
     stoppingRotor=false;
+    clearTextBox();
 }
 
 static void moveRotorWorker(float degrees, float newDegree) {
@@ -361,7 +486,7 @@ static void moveExact(GtkWidget *widget, gpointer data) {
     if (d>=0 && d<360) {
       moveRotor(translateDisplay2Rotor(d)-rotorDegree);
       logger.debug("Move to %.1f", d);
-      updateTextBox(d, false);
+      updateTextBox(d);
       return;
     }
     throw (runtime_error("unknown error"));
@@ -370,8 +495,7 @@ static void moveExact(GtkWidget *widget, gpointer data) {
   } catch (...) {
     logger.error("invalid degree entered in text box %s", raw);
   }
-  updateTextBox(translateRotor2Display(rotorDegree), false);
-
+  updateTextBox(translateRotor2Display(rotorDegree));
 }
 
 
@@ -433,8 +557,10 @@ static void drawCompass(bool newSurface) {
   gdouble x=width/2.0-1;
   gdouble y=height/2.0-1;
 
-  int radius = (x<y)?x-3:y-3;
-  auto degree=rotorDegree+90;
+  int outerRadius = (x<y)?x-3:y-3;
+  int radius = outerRadius;
+  auto currDegree = rotorDegree;
+  auto degree=currDegree+90;
   if (degree<0) {
       degree=360-degree;
   }
@@ -484,7 +610,51 @@ static void drawCompass(bool newSurface) {
   cairo_line_to(cr, x+xPoint,  y+yPoint);
   cairo_close_path (cr);
   cairo_stroke(cr);
+
+// degree
+  char deg[32];
+  auto displayDegree = translateDisplay2Rotor(currDegree);
+  sprintf(deg,"%.0f", displayDegree);
+
+  const char *fontFace = "Courier New";
+  cairo_text_extents_t extents;
+
+  cairo_select_font_face(cr, fontFace, 
+      CAIRO_FONT_SLANT_NORMAL,
+      CAIRO_FONT_WEIGHT_BOLD);
   
+  
+  cairo_set_font_size(cr, outerRadius / 2.5);
+  cairo_text_extents(cr, deg, &extents);
+
+  float halfText = extents.width/2;
+
+  cairo_set_source_rgb(cr, 0,0,0);  
+
+  float textY;
+  if (currDegree<90 || currDegree>270) {
+    textY=y-(outerRadius/3)+(extents.height/2);
+  } else {
+    textY=y+(outerRadius/3)+(extents.height/2);
+  }
+  cairo_move_to(cr, x-halfText, textY);
+  cairo_show_text(cr, deg);
+
+  cairo_text_extents(cr, "XXX", &extents);
+  halfText = extents.width/2;
+
+  int padTop=4;
+  int padBottom=padTop;
+  int padLeft=6;
+  int padRight=padLeft+1;
+
+  cairo_move_to(cr, x-halfText-padLeft,  textY+padBottom);
+  cairo_line_to(cr, x+halfText+padRight, textY+padBottom);
+  cairo_line_to(cr, x+halfText+padRight, textY-extents.height-padTop);
+  cairo_line_to(cr, x-halfText-padLeft,  textY-extents.height-padTop);
+  cairo_close_path (cr);
+  cairo_stroke(cr);
+
   cairo_destroy(cr);
 //   displayLock.unlock();
 
@@ -568,7 +738,6 @@ void renderCompass() {
       } catch (...) {
         logger.warn("unhandled exception in renderCompass");
       }
-      updateTextBox(translateRotor2Display(currDegree), false);
     }
   }
 }
@@ -643,14 +812,13 @@ void timeUpdate() {
       strftime(localDateBuffer, sizeof(localDateBuffer), "%Y/%m/%d", localtime(&currentTime.tv_sec));
     }
 
-    updateTextLock.lock();
-    g_idle_add(textBoxWidgetUpdate, nullptr);
+    g_idle_add(timeWidgetUpdate, nullptr);
     
     sleep(1);
   }
 }
 
-void voltageCatcher() {
+void voltageCatcherOld() {
     logger.debug("init voltage catcher; channel=%d", options.aspectVoltageChannel);
   
     float lastDegree=999;
@@ -671,7 +839,7 @@ void voltageCatcher() {
 
     while (true) {
         auto now = currentTimeMillis();
-        float volts = readVoltage(a2dHandle, options.aspectVoltageChannel, options.gain);
+        float volts = readVoltageSingleShot(a2dHandle, options.aspectVoltageChannel, options.gain);
 
         if (volts>=maxGain && lastVolts<(maxGain/2)) {
             logger.warn("volts >= maxGain<%f>; setting to zero", maxGain);
@@ -754,21 +922,12 @@ void displayParameters() {
         return;
     }
     logger.info("fullscreen:                        %s",(options.fullscreen)?"true":"false");
-    logger.info("useAspectReferenceVoltageChannel:  %s",(options.useAspectReferenceVoltageChannel)?"true":"false");
-    logger.info("aspectVoltageChannel:              %d", options.fullscreen);
-    logger.info("aspectReferenceVoltageChannel:     %d", options.aspectReferenceVoltageChannel);
+    logger.info("aspectVoltageChannel:              %d", options.aspectVoltageChannel);
     logger.info("aspectVariableResistorOhms:        %d", options.aspectVariableResistorOhms);
     logger.info("aspectFixedResistorOhms:           %d", options.aspectFixedResistorOhms);
     logger.info("limitSwitchPin:                    %d", options.LimitSwitch);
-    logger.info("catchderDelay:                     %d ms", options.catcherDelay);
+    logger.info("sps:                               %d", options.sps);
 
-    if (!options.useAspectReferenceVoltageChannel) {
-        logger.info("rotorVcc:                          %f", options.rotorVcc);
-
-        float  rotorVout = (options.rotorVcc*options.aspectVariableResistorOhms) / 
-                (options.aspectFixedResistorOhms+options.aspectVariableResistorOhms);
-        logger.info("max allowed voltage:           %.2f", rotorVout);
-    }
 }
 
 void neopixel_setup() {
@@ -786,12 +945,12 @@ void neopixel_setup() {
     neopixel_setPixel(operationIndicator+1, 0);
     neopixel_render();
 
-    logger.info("stopped color: %6x", movingColor);
+    logger.info("moving color:  %6x", movingColor);
     neopixel_setPixel(operationIndicator, movingColor);
     neopixel_render();
     delay(500);
 
-    logger.info("stopped color: %6x", brakingColor);
+    logger.info("braking color: %6x", brakingColor);
     neopixel_setPixel(operationIndicator, brakingColor);
     neopixel_render();
     delay(500);
@@ -867,8 +1026,233 @@ void programStop() {
 }
 
 
+
+
+int hideSettings(gpointer data) {
+  gtk_window_close(settingsWindow);
+  isSettingsDialogueActive=false;
+  calledHideSettings=false;
+  thread(hideMouse).detach();
+  return FALSE;
+}
+
+void cancelSettings() {
+  hideSettings(nullptr);
+}
+
+void gtk_widget_destroy_noarg(GtkWidget *widget, void*noarg) {
+    gtk_widget_destroy(widget);
+}
+
+struct scollStuffStruct {
+  int selectedRow;
+};
+
+typedef scollStuffStruct scrollStuff;
+
+int timezoneScroller(gpointer data) {
+  scrollStuff *stuff = (scrollStuff*)data;
+
+  auto adjuster = gtk_list_box_get_adjustment(timezoneListBox);
+  gdouble pageSize = gtk_adjustment_get_page_size(adjuster);
+
+  if (stuff->selectedRow<0) {
+    stuff->selectedRow=0;
+  }
+
+  gint wx, wy=0;
+  gint mh, nh;
+
+  auto row = gtk_list_box_get_row_at_index(timezoneListBox, stuff->selectedRow);
+
+  gtk_widget_get_preferred_height((GtkWidget*)row, &mh, &nh);
+  gtk_widget_translate_coordinates((GtkWidget*)row, gtk_widget_get_toplevel((GtkWidget*)timezoneListBox), 0, 0, &wx, &wy);
+
+  double adjustment = wy - (pageSize - nh)/2.0;
+  gtk_adjustment_set_value(adjuster, adjustment);
+
+  // logger.info("pageSize=%.0f; wy=%ld; mh=%d nh=%d; adj=%.0f", pageSize, (long)wy, mh, nh, adjustment);
+
+  return FALSE;
+}
+
+
+int updateTimezones(gpointer data) {
+    char buf[4096];
+    int options;
+    const char *currCountry=nullptr;
+
+    FILE *timezoneInput = popen("timedatectl list-timezones", "r");
+
+    auto sel = gtk_list_box_get_selected_row(countryListBox);
+    if (sel!=nullptr) {
+      auto row = gtk_list_box_row_get_index(sel);
+
+      currCountry = countries[row].c_str();
+    } else {
+      return FALSE;
+    }
+    gtk_container_foreach((GtkContainer *)timezoneListBox, gtk_widget_destroy_noarg, nullptr);
+
+    timezones.clear();
+    int selectedRow=-1;
+    options=-1;
+    while (fgets(buf, sizeof(buf), timezoneInput) != nullptr) {
+      buf[strlen(buf)-1]=0;
+
+      if (strncmp(buf, currCountry, strlen(currCountry))!=0) {
+        continue;
+      }
+      ++options;
+      char *slash=strstr(buf,"/");
+      int offset=(slash==0)?0:slash-(&buf[0])+1;
+      auto label = gtk_label_new(&buf[offset]);
+      gtk_label_set_xalign ((GtkLabel*)label, 0);
+      gtk_list_box_insert(timezoneListBox, label, options);
+      timezones.push_back(buf);
+      if (strcmp(buf, currTimezone)==0) {
+        selectedRow = options;
+      }
+    }
+    if (selectedRow>=0) {
+        auto row = gtk_list_box_get_row_at_index(timezoneListBox, selectedRow);
+        gtk_list_box_select_row(timezoneListBox, row);
+    }
+    fclose(timezoneInput);
+
+    gtk_widget_show_all((GtkWidget*)timezoneListBox);
+
+    scrollStuff *stuff = new scrollStuff;
+    stuff->selectedRow = selectedRow;
+
+    g_idle_add(timezoneScroller,stuff);
+
+  return FALSE;
+}
+
+
+void saveSettings() {
+
+    auto sel = gtk_list_box_get_selected_row(timezoneListBox);
+    
+    if (sel!=nullptr) {
+      auto row = gtk_list_box_row_get_index(sel);
+
+      char cmd[4096];
+
+      sprintf(cmd,"sudo timedatectl set-timezone '%s'", timezones[row].c_str());
+
+      system(cmd);
+
+      logger.info("new timezone: %s",timezones[row].c_str());
+
+    }
+    // char* selection = gtk_combo_box_text_get_active_text (timezoneListBox);
+
+
+    g_idle_add(hideSettings, nullptr);
+}
+
+int showSettings(gpointer data) {
+    GtkBuilder *uiBuilder;
+    GObject    *button;
+    GError     *error=nullptr;
+    char buf[4096];
+
+    /* Construct a GtkBuilder instance and load our UI description */
+    uiBuilder = gtk_builder_new ();
+    if (gtk_builder_add_from_file (uiBuilder, "settings.ui", &error) == 0) {
+        g_printerr ("Error loading file: %s\n", error->message);
+        g_clear_error (&error);
+        return 1;
+    }
+
+    settingsWindow  = (GtkWindow*)  gtk_builder_get_object (uiBuilder, "SettingsWindow");
+    countryListBox  = (GtkListBox*) gtk_builder_get_object (uiBuilder, "CountryListBox");
+    timezoneListBox = (GtkListBox*) gtk_builder_get_object (uiBuilder, "TimezoneListBox");
+
+    FILE* timezoneInput = popen("timedatectl | sed -ne 's/.*Time zone: *\\([^ ]*\\) (.*)$/\\1/p'", "r");
+
+    fgets(currTimezone,sizeof(currTimezone),timezoneInput);
+    currTimezone[strlen(currTimezone)-1]=0;
+    fclose(timezoneInput);
+
+    char currCountry[4096];
+
+    memset(currCountry,0,sizeof(currCountry));
+    for (int i=0; currTimezone[i]!=0 && currTimezone[i]!='/';++i) {
+      currCountry[i]=currTimezone[i];
+    }
+
+    logger.info("current timezone: %s",currTimezone);
+
+    timezoneInput = popen("timedatectl list-timezones | awk -F/ '{print $1}' | sort -u", "r");
+
+    GtkListBoxRow *row=nullptr;
+    
+    int options=-1;
+    while (fgets(buf, sizeof(buf), timezoneInput) != nullptr) {
+      ++options;
+      buf[strlen(buf)-1]=0;
+      countries.push_back(buf);
+      auto label = gtk_label_new(buf);
+      gtk_label_set_xalign ((GtkLabel*)label, 0);
+      gtk_list_box_insert(countryListBox, label, options);
+
+
+      if (strcmp(currCountry,buf)==0) {
+        row = gtk_list_box_get_row_at_index(countryListBox,options);
+        gtk_list_box_select_row(countryListBox,row);
+      }
+    }
+
+    fclose(timezoneInput);
+    updateTimezones(nullptr);
+    gtk_widget_show_all((GtkWidget*)settingsWindow);
+
+
+    button = gtk_builder_get_object (uiBuilder, "SaveSettingsButton");
+    g_signal_connect (button, "clicked", G_CALLBACK (saveSettings), NULL);
+
+    button = gtk_builder_get_object (uiBuilder, "CancelSettingsButton");
+    g_signal_connect (button, "clicked", G_CALLBACK (cancelSettings), NULL);
+    g_signal_connect (settingsWindow, "destroy", G_CALLBACK (cancelSettings), NULL);
+    g_signal_connect (countryListBox, "row-selected", G_CALLBACK (updateTimezones), NULL);
+
+
+    return FALSE;
+}
+
+
+void settingsDialogue() {
+    bool expected1=false;
+    bool expected2=false;
+
+    if (!isSettingsDialogueActive.compare_exchange_weak(expected1, true)) {
+      if (!calledHideSettings.compare_exchange_weak(expected2, true)) {
+        hideSettings(nullptr);
+      }
+      return;
+    }
+
+    g_idle_add(showSettings, nullptr);
+}
+
+static gboolean compassClick(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
+
+// double click = GDK_2BUTTON_PRESS
+    double breakpoint = screenWidth/3.0;
+    if (event->type == GDK_BUTTON_PRESS && event->x < breakpoint) {
+      // logger.info("mouse click button <%d> @ (%.0f,%.0f); breakpoint=%f; screenWidth=%d", event->button, event->x, event->y, breakpoint, screenWidth);
+
+      settingsDialogue();
+    }
+
+    return TRUE;
+}
+
 int main(int argc, char **argv) {
-    GtkBuilder *builder;
+    GtkBuilder *uiBuilder;
     GObject    *window;
     GObject    *button;
     GError     *error=nullptr;
@@ -896,16 +1280,18 @@ int main(int argc, char **argv) {
 	}
     
     pinMode(options.LimitSwitch, INPUT);
-    pullUpDnControl(options.LimitSwitch, PUD_UP);
+    // doesn't work on RPi 4
+    //pullUpDnControl(options.LimitSwitch, PUD_UP);
   	a2dSetup();
 
     if (initRotorMotor()!=0) {
         logger.error("rotor motor initializaion failed");
-		exit(4);
+    		exit(4);
     }
 
 
-    gtk_init (&argc, &argv);
+
+    gtk_init(&argc, &argv);
 
     GtkCssProvider *cssProvider = gtk_css_provider_new();
     gtk_css_provider_load_from_path(cssProvider, "theme.css", NULL);
@@ -915,46 +1301,54 @@ int main(int argc, char **argv) {
                                 GTK_STYLE_PROVIDER_PRIORITY_USER);
 
     /* Construct a GtkBuilder instance and load our UI description */
-    builder = gtk_builder_new ();
-    if (gtk_builder_add_from_file (builder, "layout.ui", &error) == 0) {
+    uiBuilder = gtk_builder_new ();
+    if (gtk_builder_add_from_file (uiBuilder, "layout.ui", &error) == 0) {
         g_printerr ("Error loading file: %s\n", error->message);
         g_clear_error (&error);
         return 1;
     }
 
     /* Connect signal handlers to the constructed widgets. */
-    window = gtk_builder_get_object (builder, "window");
+    window = gtk_builder_get_object (uiBuilder, "window");
     g_signal_connect (window, "destroy", G_CALLBACK (programStop), NULL);
 
-    button = gtk_builder_get_object (builder, "MoveExactButton");
+    button = gtk_builder_get_object (uiBuilder, "MoveExactButton");
     g_signal_connect (button, "clicked", G_CALLBACK (moveExact), NULL);
 
-    button = gtk_builder_get_object (builder, "FastReverse");
+    button = gtk_builder_get_object (uiBuilder, "FastReverse");
     g_signal_connect (button, "clicked", G_CALLBACK (moveTenCounterClockwise), NULL);
 
-    button = gtk_builder_get_object (builder, "FastForward");
+    button = gtk_builder_get_object (uiBuilder, "FastForward");
     g_signal_connect (button, "clicked", G_CALLBACK (moveTenClockwise), NULL);
 
 
-    button = gtk_builder_get_object (builder, "abort");
+    button = gtk_builder_get_object (uiBuilder, "abort");
     g_signal_connect (button, "clicked", G_CALLBACK (abortMovement), NULL);
 
-    setButton(builder, "northButton", "clicked", G_CALLBACK(moveTo), &directional.north);
-    setButton(builder, "southButton", "clicked", G_CALLBACK(moveTo), &directional.south);
-    setButton(builder, "eastButton", "clicked", G_CALLBACK(moveTo),  &directional.east);
-    setButton(builder, "westButton", "clicked", G_CALLBACK(moveTo),  &directional.west);
-
-    setButton(builder, "seButton", "clicked", G_CALLBACK(moveTo), &directional.se);
-    setButton(builder, "swButton", "clicked", G_CALLBACK(moveTo), &directional.sw);
-    setButton(builder, "nwButton", "clicked", G_CALLBACK(moveTo), &directional.nw);
-    setButton(builder, "neButton", "clicked", G_CALLBACK(moveTo), &directional.ne);
+    drawingArea = (GtkWidget *) gtk_builder_get_object (uiBuilder, "CompassDrawingArea");
+    g_signal_connect (window, "button-press-event", G_CALLBACK (compassClick), NULL);
 
 
 
-    degreeInputBox = (GtkWidget *) gtk_builder_get_object (builder, "DegreeInputBox");
-    drawingArea = (GtkWidget *) gtk_builder_get_object (builder, "CompassDrawingArea");
+    setButton(uiBuilder, "northButton", "clicked", G_CALLBACK(moveTo), &directional.north);
+    setButton(uiBuilder, "southButton", "clicked", G_CALLBACK(moveTo), &directional.south);
+    setButton(uiBuilder, "eastButton", "clicked", G_CALLBACK(moveTo),  &directional.east);
+    setButton(uiBuilder, "westButton", "clicked", G_CALLBACK(moveTo),  &directional.west);
 
-    initTime(builder);
+    setButton(uiBuilder, "seButton", "clicked", G_CALLBACK(moveTo), &directional.se);
+    setButton(uiBuilder, "swButton", "clicked", G_CALLBACK(moveTo), &directional.sw);
+    setButton(uiBuilder, "nwButton", "clicked", G_CALLBACK(moveTo), &directional.nw);
+    setButton(uiBuilder, "neButton", "clicked", G_CALLBACK(moveTo), &directional.ne);
+
+
+
+    degreeInputBox = (GtkWidget *) gtk_builder_get_object (uiBuilder, "DegreeInputBox");
+
+    initTime(uiBuilder);
+
+
+
+
 
 
 
@@ -973,7 +1367,7 @@ int main(int argc, char **argv) {
     
     thread(hideMouse).detach();
     thread(timeUpdate).detach();
-    thread(voltageCatcher).detach();
+    // thread(voltageCatcher).detach();
     thread(renderCompass).detach();
     thread(initRotorDegrees).detach();
     neopixel_setup();
