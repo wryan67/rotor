@@ -8,7 +8,7 @@ if [ "$1" = "" ];then
 fi
 
 
-./vc -g 1 -f 20 > $1 &
+./vc -c 0 -g 1 -f 5 > $1 &
 VCPID=$!
 
 sleep 2
