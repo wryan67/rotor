@@ -119,17 +119,11 @@ struct directionalType {
 float getDegree(float volts);
 
 float translateRotor2Display(float degrees) {
-    if (degrees>180) {
-        return degrees-180;
-    } else {
+    if (degrees<180) {
         return degrees+180;
+    } else {
+        return degrees-180;
     }
-
-    // float workingDegrees=degrees+180;
-    // if (workingDegrees>360) {
-    //     workingDegrees-=360;
-    // }    
-    // return workingDegrees;
 }
 
 float translateDisplay2Rotor(float degrees) {
@@ -237,7 +231,7 @@ void a2dSetup() {
 
     float targetPeriods = 3;
     float sixtyHzPeriod = 1000.0 * ( 1.0 / 60.0); // 1000 ms * 1/60;
-    float targetWindow= round(sixtyHzPeriod * targetPeriods);  //ms
+    float targetWindow= 8;  // round(sixtyHzPeriod * targetPeriods);  //ms
 
     logger.info("60Hz period = %.1f; targetPeriods=%.0f; targetWindow=%.1fms", sixtyHzPeriod, targetPeriods, targetWindow);
 
@@ -340,7 +334,7 @@ static void stopRotor(float newDegree) {
     
     if (logFile) fprintf(logFile,"parked\n");
 
-    delay(100);
+    delay(1000);
     float targetDeviation=rotorDegree-newDegree;
 
     logger.info("rotor parked; rotorDegree=%3.0f; target deviation=%.1f", 
@@ -768,14 +762,11 @@ void setButton(GtkBuilder *builder, const char*buttonId, char *action, GCallback
 }
 
 float getDegree(float volts) {
-    switch (options.aspectFixedResistorOhms) {
-        case 1000:    return  5.7849*volts*volts + 42.320*volts + 1.6645;
-        case 1375:    return  6.9425*volts*volts + 61.667*volts + 1.0252;
-        default:
-            fprintf(stderr,"voltage to degree equation not defined for r1=%d'n", 
-                            options.aspectFixedResistorOhms );
-        return 0;
-    }
+    float vS = options.aspectSourceVoltage;
+    float r1 = options.aspectFixedResistorOhms;
+    float r2 = (volts * r1 ) / (vS - volts);
+      
+    return (r2/options.aspectVariableResistorOhms)*360.0;
 }
 
 int screenBreakpoint=320;
@@ -783,7 +774,6 @@ int screenBreakpoint=320;
 void timeUpdate() { 
   // old: 480x320
   // new: 800x480
-
 
   if (screenHeight>screenBreakpoint) {
     gtk_widget_set_visible((GtkWidget*)utcLabel,       true);
@@ -793,19 +783,14 @@ void timeUpdate() {
     gtk_widget_set_visible((GtkWidget*)localDate,      true);
   }
 
-  while(true) {
-    
+  while(true) {    
     // logger.debug("screen dimensiopns: <%d,%d>", screenWidth, screenHeight);
-
 
     struct timeval currentTime;
 
     gettimeofday(&currentTime, nullptr);
     strftime(utcTimeBuffer, sizeof(utcTimeBuffer), "%H:%M:%S", gmtime(&currentTime.tv_sec));
     strftime(utcDateBuffer, sizeof(utcDateBuffer), "%Y/%m/%d", gmtime(&currentTime.tv_sec));
-
-
-
 
     if (screenHeight>screenBreakpoint) {
       strftime(localTimeBuffer, sizeof(localTimeBuffer), "%H:%M:%S", localtime(&currentTime.tv_sec));
@@ -818,99 +803,6 @@ void timeUpdate() {
   }
 }
 
-void voltageCatcherOld() {
-    logger.debug("init voltage catcher; channel=%d", options.aspectVoltageChannel);
-  
-    float lastDegree=999;
-
-    // vector<pair<uint64_t,float>*> slidingVolts;
-
-    float voltsMax = (options.rotorVcc * options.aspectVariableResistorOhms) /
-                     (options.aspectFixedResistorOhms + options.aspectVariableResistorOhms);
-
-    // float twilightZone = voltsMax * 0.95;
-    // float vccFudge = voltsMax*0.99;
-    float lastVolts=-1;
-    float lastDisplayVolts=-1;
-    long long lastDisplayTime=0;
-    // uint32_t count=0;
-
-    float maxGain = getADS1115MaxGain(options.gain);
-
-    while (true) {
-        auto now = currentTimeMillis();
-        float volts = readVoltageSingleShot(a2dHandle, options.aspectVoltageChannel, options.gain);
-
-        if (volts>=maxGain && lastVolts<(maxGain/2)) {
-            logger.warn("volts >= maxGain<%f>; setting to zero", maxGain);
-            volts=0;
-        }
-
-        if (volts<0) {
-            logger.error("volts read on channel %d is less than zero: %f", options.aspectVoltageChannel, volts);
-            volts=0;
-        }
-
-        if (volts>voltsMax) {
-            logger.error("volts read on channel %d is more than max allowed: actual=%f, allowed=%f; maxGain=%f", options.aspectVoltageChannel, volts, voltsMax, maxGain);
-            volts=voltsMax;
-        }
-
-        if (lastVolts<0) {
-            lastVolts=volts;
-            continue;
-        } else {
-            float pDiff = abs((volts-lastVolts)/((volts+lastVolts)/2));
-
-            if (!parked && logFile) {
-                fprintf(logFile, "%lld,curr=%f,last=%f,pDiff=%f\n", 
-                    now, volts, lastVolts, pDiff);
-            }
-
-            if (pDiff>0.25) {
-                lastVolts=volts;
-                continue;
-            }
-        }
-        
-        float newDegree = getDegree(volts);
-
-        if (abs(newDegree)>360) {
-            newDegree=360;
-        }
-        if (newDegree<0) {
-            newDegree=0;
-        }
-        rotorDegree=newDegree;
-
-        if (abs(newDegree-lastDegree)>options.wobbleLimit) {
-            forceVoltageDebugDisplay=true;
-            lastDegree=newDegree;
-        }
-
-
-        if (abs(volts-lastDisplayVolts)>0.010 || forceVoltageDebugDisplay) {
-            int limitSwitch = digitalRead(options.LimitSwitch);
-
-            long long now = currentTimeMillis();
-            long long elapsed = now - lastDisplayTime;
-
-            if (elapsed<500) {
-                //forceVoltageDebugDisplay=true;
-            } else {
-                logger.debug("bs=%d ls=%d ch[0]=%.3f i-degree=%.1f d-degree=%.0f gain=%d r1=%d", 
-                        getBrakeStatus(), limitSwitch,  volts, newDegree, translateRotor2Display(newDegree), 
-                        options.gain, options.aspectFixedResistorOhms);
-                lastDisplayVolts=volts;
-                lastDisplayTime=now;
-                forceVoltageDebugDisplay=false;
-            }
-        }
-
-        lastVolts=volts;
-        usleep(100);
-    }
-}
 
 void initRotorDegrees() {
     usleep(1500*1000);
@@ -1367,7 +1259,6 @@ int main(int argc, char **argv) {
     
     thread(hideMouse).detach();
     thread(timeUpdate).detach();
-    // thread(voltageCatcher).detach();
     thread(renderCompass).detach();
     thread(initRotorDegrees).detach();
     neopixel_setup();

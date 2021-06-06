@@ -15,13 +15,13 @@ private:
 public:
     LogLevel logLevel   = INFO;
     bool     fullscreen = false;
-    int      gain                           = 1;
+    int      gain                           = 0;
     int      v3channel                      = 3;
     int      sps                            = 5;
     int      aspectVoltageChannel           = 0;
     int      aspectVariableResistorOhms     = 500;
-    int      aspectFixedResistorOhms        = 1375;
-    float    rotorVcc                       = 15.0;
+    int      aspectFixedResistorOhms        = 1100;
+    float    aspectSourceVoltage            = 15.0;
     float    wobbleLimit                    = 2;      // degrees
 
     int      ClockwisePin;  
