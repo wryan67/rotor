@@ -227,13 +227,23 @@ int showCableDisconnect(gpointer data) {
     return false;
   }
 
+  char message[4096] = "The cable is disconnected";
+
+  if (currentVolts > 5.28) {
+    sprintf(message,
+              "The cable is disconnected\n" 
+              "The ADS1115 chip cannot accept\n" 
+              "voltage higher than 5.3 volts.\n"
+              "current voltage is %.2g volts", currentVolts
+    );
+  }
+
   GtkDialogFlags flags = GTK_DIALOG_DESTROY_WITH_PARENT;
   GtkWidget *dialog = gtk_message_dialog_new ((GtkWindow*)mainWindow,
                             flags,
                             GTK_MESSAGE_ERROR,
                             GTK_BUTTONS_CLOSE,
-                            "The cable is disconnected\nvolts=%.2f",
-                            currentVolts);
+                            message);
 
   gtk_window_set_title((GtkWindow*)dialog,"cable status");
   gtk_dialog_run((GtkDialog*)dialog);
