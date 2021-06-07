@@ -151,8 +151,6 @@ void hideMouse() {
 // float lastVolts=999;
 
 void voltageCatcher() {
-
-  //@@
   float volts = readVoltage(a2dHandle);
   currentVolts=volts;
 
@@ -280,6 +278,40 @@ void cableMonitor() {
   }
 }
 
+
+
+void bootErrorWindow(GtkApplication *app, gpointer data) {
+
+  gtk_application_window_new(app);
+ 
+  GtkWidget *dialog = gtk_message_dialog_new ((GtkWindow*)mainWindow,
+      GTK_DIALOG_DESTROY_WITH_PARENT,
+      GTK_MESSAGE_ERROR,
+      GTK_BUTTONS_CLOSE,
+      (char*) data                            
+  );
+
+  gtk_window_set_title((GtkWindow*)dialog,"cable status");
+  gtk_dialog_run((GtkDialog*)dialog);
+  gtk_widget_destroy (dialog);
+  exit(4);
+}
+
+void bootError(char *message) {
+  int   argc=1;
+  char *argv[1];
+  argv[0] = (char*)malloc(32);
+  strcpy(argv[0],"rotor");
+
+  GtkApplication *app = gtk_application_new ("org.rotor", G_APPLICATION_FLAGS_NONE);
+
+  g_signal_connect    (app, "activate", G_CALLBACK (bootErrorWindow), message);
+  g_application_run   (G_APPLICATION (app), argc, argv);
+  g_object_unref      (app);
+  exit(4);
+}
+
+
 void a2dSetup() {
     cableDisconnectedVolts = (options.zenerDiode * (1-(options.zenerDiodeTolerance/100.0)))-0.01;
 
@@ -299,8 +331,13 @@ void a2dSetup() {
         }
         logger.info("a2dHandle=%d; a2d_address=%02x", a2dHandle, ADS1115_ADDRESS);
         logger.info("voltage on channel a%d=%f", options.v3channel, v3);
-        logger.error("ads1115 chip is not working; check external power?");
-		    exit(4);
+        logger.error("ads1115 chip is not working");
+
+        char *message=(char*)malloc(2048);
+        sprintf(message, "The ADS1115 a2d chip does not appear to be functional on address 0x%02x", 
+                      ADS1115_ADDRESS);
+     
+        bootError(message);
     }
 
     options.sps=5;
