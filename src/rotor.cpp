@@ -1254,8 +1254,13 @@ void settingsDialogue() {
 
 static gboolean compassClick(GtkWidget *widget, GdkEventButton *event, gpointer user_data) {
 
+  gint width;
+  gint height;
+
+  gtk_window_get_size((GtkWindow *)mainWindow, &width, &height);
+
 // double click = GDK_2BUTTON_PRESS
-    double breakpoint = screenWidth/3.0;
+    double breakpoint = width/3.0;
     if (event->type == GDK_BUTTON_PRESS && event->x < breakpoint) {
       // logger.info("mouse click button <%d> @ (%.0f,%.0f); breakpoint=%f; screenWidth=%d", event->button, event->x, event->y, breakpoint, screenWidth);
 
