@@ -140,9 +140,26 @@ float translateDisplay2Rotor(float degrees) {
     return workingDegrees;
 }
 
+void getScreenResolution() {
+  // old: 480x320
+  // new: 800x480
+
+  GdkRectangle workarea = {0};
+  gdk_monitor_get_workarea(
+  gdk_display_get_primary_monitor(gdk_display_get_default()),
+    &workarea);
+
+  screenWidth=workarea.width;
+  screenHeight=workarea.height;
+
+  if (screenWidth<480 || screenHeight<320) {
+    logger.error("minimum screen resolution is 840x320");
+    exit(7);
+  }
+}
+
 void hideMouse() {
   char cmd[2048];
-
   delay(1000);
   sprintf(cmd,"xdotool mousemove %d %d", screenWidth, screenHeight);
   system(cmd);
@@ -296,6 +313,8 @@ void bootErrorWindow(GtkApplication *app, gpointer data) {
       GTK_BUTTONS_CLOSE,
       (char*) data                            
   );
+  getScreenResolution();
+  thread(hideMouse).detach();
 
   gtk_window_set_title((GtkWindow*)dialog,"boot error");
   gtk_dialog_run((GtkDialog*)dialog);
@@ -309,7 +328,6 @@ void bootError(const char *message) {
   argv[0] = (char*)malloc(32);
   strcpy(argv[0],"rotor");
 
-  thread(hideMouse).detach();
 
   char *msg=(char*)malloc(strlen(message)+1);
   sprintf(msg,"\n%s",message);
@@ -1001,38 +1019,8 @@ void initTime(GtkBuilder *builder) {
     localTime   = (GtkLabel*) gtk_builder_get_object (builder, "local-time");
     localDate   = (GtkLabel*) gtk_builder_get_object (builder, "local-date");
 
-/*
-    gtk_label_set_text(utcLabel,      nullptr);
-    gtk_label_set_text(utcTime,       nullptr);
-    gtk_label_set_text(utcDate,       nullptr);
-    gtk_label_set_text(timeSeparator, nullptr);
-    gtk_label_set_text(localLabel,    nullptr);
-    gtk_label_set_text(localTime,     nullptr);
-    gtk_label_set_text(localDate,     nullptr);
-*/
-
-
 }
 
-void getScreenResolution() {
-  // old: 480x320
-  // new: 800x480
-
-  GdkRectangle workarea = {0};
-  gdk_monitor_get_workarea(
-  gdk_display_get_primary_monitor(gdk_display_get_default()),
-    &workarea);
-
-  screenWidth=workarea.width;
-  screenHeight=workarea.height;
-
-  if (screenWidth<480 || screenHeight<320) {
-    logger.error("minimum screen resolution is 840x320");
-    exit(7);
-  }
-}
-
-// moveTenClockwise(GtkWidget *widget, gpointer data)
 
 void abortMovement() {
   thread(deactivateRotor).detach();
