@@ -42,6 +42,9 @@ bool capturePoints=false;
 int screenWidth;
 int screenHeight;
 
+bool skipWindow = false;
+long long skipTime = 0;
+
 #define TARGET_FREQ             WS2811_TARGET_FREQ
 #define GPIO_PIN                18   // BCM numbering system
 #define DMA                     10   // DMA=Direct Memory Access
@@ -111,6 +114,7 @@ float         totalSampleVolts=0;
 long          totalSamples;
 float         lastDisplayVolts=-9;
 vector<float> samples;
+float         cableDisconnectedVolts;
 
 struct directionalType {
   int east,  se, south,   sw, west,  nw, north, ne;
@@ -144,16 +148,27 @@ void hideMouse() {
   system(cmd);
 }
 
+// float lastVolts=999;
 
 void voltageCatcher() {
 
-  currentVolts = readVoltage(a2dHandle);
+  //@@
+  float volts = readVoltage(a2dHandle);
+  currentVolts=volts;
 
   switch (sampleMode) {
     case 0: {
+      if (skipWindow) {
+        long long now = currentTimeMillis();
+        if (now<skipTime) {
+          return;
+        }
+        skipWindow=false;
+      }
 
-      totalSampleVolts+=currentVolts;      
-      samples.push_back(currentVolts);
+      
+      totalSampleVolts+=volts;      
+      samples.push_back(volts);
 
       auto oldestSample = samples.at(0);
       totalSampleVolts-=oldestSample;
@@ -193,8 +208,8 @@ void voltageCatcher() {
       return;
     }
     case 2: {
-      totalSampleVolts+=currentVolts;      
-      samples.push_back(currentVolts);
+      totalSampleVolts+=volts;      
+      samples.push_back(volts);
 
       if (samples.size()>=windowSize) {
         sampleMode=0;
@@ -231,12 +246,10 @@ int showCableDisconnect(gpointer data) {
   return false;
 }
 
+
+
 void cableMonitor() {
   bool messageWritten=false;
-
-  float cableDisconnectedVolts = 5;
-  // float cableDisconnectedVolts = (options.aspectSourceVoltage * options.aspectVariableResistorOhms) /
-  //                                (options.aspectFixedResistorOhms*1.01 + options.aspectVariableResistorOhms);
 
   logger.debug("cable disconnect volts = %f", cableDisconnectedVolts);
   
@@ -258,6 +271,7 @@ void cableMonitor() {
 }
 
 void a2dSetup() {
+    cableDisconnectedVolts = (options.zenerDiode * (1-(options.zenerDiodeTolerance/100.0)))-0.01;
 
     a2dHandle = getADS1115Handle(ADS1115_ADDRESS);
 
@@ -415,10 +429,14 @@ static void stopRotor(float newDegree) {
 static void moveRotorWorker(float degrees, float newDegree) {
 
     parked=false;
+    skipWindow=true;
+    skipTime=currentTimeMillis()+1000;
     if (!activateRotor(degrees)) {
+        skipWindow=false;
         logger.error("failed to start rotor motor");
             return;
     }
+    skipTime=currentTimeMillis()+300;
     logger.info("moving %.0f degrees to %.1f", degrees, newDegree);
 
     neopixel_setPixel(operationIndicator, movingColor);

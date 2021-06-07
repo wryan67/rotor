@@ -22,6 +22,9 @@ public:
     int      aspectVariableResistorOhms     = 500;
     int      aspectFixedResistorOhms        = 1100;
     float    aspectSourceVoltage            = 15.0;
+    float    zenerDiode                     = 5.1;
+    float    zenerDiodeTolerance            = 3;
+
     float    wobbleLimit                    = 2;      // degrees
 
     int      ClockwisePin;  
