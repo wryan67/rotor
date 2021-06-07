@@ -297,7 +297,7 @@ void bootErrorWindow(GtkApplication *app, gpointer data) {
   exit(4);
 }
 
-void bootError(char *message) {
+void bootError(const char *message) {
   int   argc=1;
   char *argv[1];
   argv[0] = (char*)malloc(32);
@@ -305,9 +305,13 @@ void bootError(char *message) {
 
   thread(hideMouse).detach();
 
+  char *msg=(char*)malloc(strlen(message));
+  strcpy(msg,message);
+  fprintf(stderr,"%s\n",message);
+
   GtkApplication *app = gtk_application_new ("org.rotor", G_APPLICATION_FLAGS_NONE);
 
-  g_signal_connect    (app, "activate", G_CALLBACK (bootErrorWindow), message);
+  g_signal_connect    (app, "activate", G_CALLBACK (bootErrorWindow), msg);
   g_application_run   (G_APPLICATION (app), argc, argv);
   g_object_unref      (app);
   exit(4);
@@ -335,7 +339,7 @@ void a2dSetup() {
         logger.info("voltage on channel a%d=%f", options.v3channel, v3);
         logger.error("ads1115 chip is not working");
 
-        char *message=(char*)malloc(2048);
+        char message[2048];
         sprintf(message, "The ADS1115 a2d chip does not appear to be functional on address 0x%02x", 
                       ADS1115_ADDRESS);
      
@@ -1274,7 +1278,7 @@ int main(int argc, char **argv) {
 
     int rs=setuid(0);
     if (rs<0) {
-        fprintf(stderr,"sorry, this app must run as root; check setuid bit\n");
+        bootError("sorry, this app must run as root; check setuid bit");
     }
 
     FILE* theme = fopen ("theme.css", "r");
@@ -1282,29 +1286,26 @@ int main(int argc, char **argv) {
         chdir("/home/pi/bin");
     }
 
-	if (!options.commandLineOptions(argc, argv)) {
-		exit(1);
-	}
+    if (!options.commandLineOptions(argc, argv)) {
+      exit(1);
+    }
     debug=(logger.getGlobalLevel()<=DEBUG);
 
     displayParameters();
 
-	if (wiringPiSetup() != 0) {
-		logger.error("wiringPi setup failed");
-		exit(2);
-	}
+    if (wiringPiSetup() != 0) {
+      bootError("wiringPi setup failed");
+    }
     
     pinMode(options.LimitSwitch, INPUT);
     // doesn't work on RPi 4
     //pullUpDnControl(options.LimitSwitch, PUD_UP);
+
   	a2dSetup();
 
     if (initRotorMotor()!=0) {
-        logger.error("rotor motor initializaion failed");
-    		exit(4);
+        bootError("rotor motor initializaion failed");
     }
-
-
 
     gtk_init(&argc, &argv);
 
