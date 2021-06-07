@@ -291,7 +291,7 @@ void bootErrorWindow(GtkApplication *app, gpointer data) {
       (char*) data                            
   );
 
-  gtk_window_set_title((GtkWindow*)dialog,"cable status");
+  gtk_window_set_title((GtkWindow*)dialog,"boot error");
   gtk_dialog_run((GtkDialog*)dialog);
   gtk_widget_destroy (dialog);
   exit(4);
