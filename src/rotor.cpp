@@ -303,6 +303,8 @@ void bootError(char *message) {
   argv[0] = (char*)malloc(32);
   strcpy(argv[0],"rotor");
 
+  thread(hideMouse).detach();
+
   GtkApplication *app = gtk_application_new ("org.rotor", G_APPLICATION_FLAGS_NONE);
 
   g_signal_connect    (app, "activate", G_CALLBACK (bootErrorWindow), message);
