@@ -479,6 +479,8 @@ static void stopRotor(float newDegree) {
     delay(1);
 
     deactivateRotor();
+    neopixel_setPixel(operationIndicator, stopColor);
+    neopixel_render();
     
     if (logFile) fprintf(logFile,"parked\n");
 
