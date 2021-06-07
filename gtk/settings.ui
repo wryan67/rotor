@@ -28,7 +28,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkScrolledWindow">
+          <object class="GtkScrolledWindow" id="RegionScrolledWindow">
             <property name="width_request">100</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>
@@ -40,6 +40,7 @@
               <object class="GtkViewport">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="shadow_type">none</property>
                 <child>
                   <object class="GtkListBox" id="CountryListBox">
                     <property name="visible">True</property>
@@ -68,7 +69,7 @@
           </packing>
         </child>
         <child>
-          <object class="GtkScrolledWindow">
+          <object class="GtkScrolledWindow" id="TimezoneScrolledWindow">
             <property name="width_request">200</property>
             <property name="visible">True</property>
             <property name="can_focus">True</property>

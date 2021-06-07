@@ -1190,6 +1190,14 @@ int showSettings(gpointer data) {
     countryListBox  = (GtkListBox*) gtk_builder_get_object (uiBuilder, "CountryListBox");
     timezoneListBox = (GtkListBox*) gtk_builder_get_object (uiBuilder, "TimezoneListBox");
 
+
+    if (screenHeight<321) {
+      GtkScrolledWindow *sw = (GtkScrolledWindow*) gtk_builder_get_object(uiBuilder, "RegionScrolledWindow");
+      gtk_scrolled_window_set_min_content_height(sw, -1);
+
+      sw = (GtkScrolledWindow*) gtk_builder_get_object(uiBuilder, "TimezoneScrolledWindow");
+      gtk_scrolled_window_set_min_content_height(sw, -1);
+    }
     FILE* timezoneInput = popen("timedatectl | sed -ne 's/.*Time zone: *\\([^ ]*\\) (.*)$/\\1/p'", "r");
 
     fgets(currTimezone,sizeof(currTimezone),timezoneInput);
