@@ -65,6 +65,7 @@ atomic<bool> calledHideSettings{false};
 
 GtkWidget *drawingArea=nullptr;
 GtkWidget *timeWindow=nullptr;
+GObject   *mainWindow=nullptr;
 
 GtkLabel  *utcLabel=nullptr;
 GtkLabel  *utcTime=nullptr;
@@ -88,6 +89,7 @@ vector<string> timezones;
 vector<string> countries;
 char currTimezone[4096];
 
+float currentVolts=-1;
 float rotorDegree=0;
 bool  forceCompassRedraw=false;
 bool  forceVoltageDebugDisplay=false;
@@ -145,7 +147,7 @@ void hideMouse() {
 
 void voltageCatcher() {
 
-  float currentVolts   = readVoltage(a2dHandle);
+  currentVolts = readVoltage(a2dHandle);
 
   switch (sampleMode) {
     case 0: {
@@ -198,6 +200,60 @@ void voltageCatcher() {
         sampleMode=0;
       }      
     }
+  }
+}
+
+
+atomic<bool> cableDisconnectDialogActive{false};
+
+int showCableDisconnect(gpointer data) {
+  bool expect=false;
+  if (!cableDisconnectDialogActive.compare_exchange_strong(expect,true)) {
+    return false;
+  }
+
+  GtkDialogFlags flags = GTK_DIALOG_DESTROY_WITH_PARENT;
+  GtkWidget *dialog = gtk_message_dialog_new ((GtkWindow*)mainWindow,
+                            flags,
+                            GTK_MESSAGE_ERROR,
+                            GTK_BUTTONS_CLOSE,
+                            "The cable is disconnected\nvolts=%.2f",
+                            currentVolts);
+
+  gtk_window_set_title((GtkWindow*)dialog,"cable status");
+  gtk_dialog_run((GtkDialog*)dialog);
+  gtk_widget_destroy (dialog);
+  thread(hideMouse).detach();
+
+
+  cableDisconnectDialogActive=false;
+
+  return false;
+}
+
+void cableMonitor() {
+  bool messageWritten=false;
+
+  float cableDisconnectedVolts = 5;
+  // float cableDisconnectedVolts = (options.aspectSourceVoltage * options.aspectVariableResistorOhms) /
+  //                                (options.aspectFixedResistorOhms*1.01 + options.aspectVariableResistorOhms);
+
+  logger.debug("cable disconnect volts = %f", cableDisconnectedVolts);
+  
+  while (true) {
+    if (currentVolts > cableDisconnectedVolts) {
+      if (!messageWritten && mainWindow!=nullptr) {
+        logger.info("cable disconnnected");
+        messageWritten=true;
+
+
+        g_idle_add(showCableDisconnect, nullptr);
+
+      }
+    } else {
+      messageWritten=false;
+    }
+    delay(100);
   }
 }
 
@@ -259,6 +315,7 @@ void a2dSetup() {
 
       pct = 100 * ((long)windowSize-expectedSampleWindow) / ((expectedSampleWindow+windowSize)/2.0);
       if (abs(pct)<=11) {
+        thread(cableMonitor).detach();
         return;
       }
       logger.info("retying...");
@@ -1145,7 +1202,6 @@ static gboolean compassClick(GtkWidget *widget, GdkEventButton *event, gpointer 
 
 int main(int argc, char **argv) {
     GtkBuilder *uiBuilder;
-    GObject    *window;
     GObject    *button;
     GError     *error=nullptr;
 
@@ -1201,8 +1257,8 @@ int main(int argc, char **argv) {
     }
 
     /* Connect signal handlers to the constructed widgets. */
-    window = gtk_builder_get_object (uiBuilder, "window");
-    g_signal_connect (window, "destroy", G_CALLBACK (programStop), NULL);
+    mainWindow = gtk_builder_get_object (uiBuilder, "window");
+    g_signal_connect (mainWindow, "destroy", G_CALLBACK (programStop), NULL);
 
     button = gtk_builder_get_object (uiBuilder, "MoveExactButton");
     g_signal_connect (button, "clicked", G_CALLBACK (moveExact), NULL);
@@ -1218,7 +1274,7 @@ int main(int argc, char **argv) {
     g_signal_connect (button, "clicked", G_CALLBACK (abortMovement), NULL);
 
     drawingArea = (GtkWidget *) gtk_builder_get_object (uiBuilder, "CompassDrawingArea");
-    g_signal_connect (window, "button-press-event", G_CALLBACK (compassClick), NULL);
+    g_signal_connect (mainWindow, "button-press-event", G_CALLBACK (compassClick), NULL);
 
 
 
@@ -1247,12 +1303,12 @@ int main(int argc, char **argv) {
     createDrawingSurface(drawingArea);
     g_signal_connect (drawingArea,"configure-event", G_CALLBACK (configure_event_cb), NULL);
     g_signal_connect (drawingArea, "draw", G_CALLBACK (draw_cb), NULL);
-    g_signal_connect (G_OBJECT(window), "window-state-event", G_CALLBACK(manualScreenRedraw), NULL);
+    g_signal_connect (G_OBJECT(mainWindow), "window-state-event", G_CALLBACK(manualScreenRedraw), NULL);
 
 
     if (options.fullscreen) {
         logger.info("entering full screen mode");
-        gtk_window_fullscreen(GTK_WINDOW(window));
+        gtk_window_fullscreen(GTK_WINDOW(mainWindow));
     }
 
     getScreenResolution();
