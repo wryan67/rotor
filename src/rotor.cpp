@@ -144,6 +144,7 @@ void getScreenResolution() {
   // old: 480x320
   // new: 800x480
 
+
   GdkRectangle workarea = {0};
   gdk_monitor_get_workarea(
   gdk_display_get_primary_monitor(gdk_display_get_default()),
@@ -151,6 +152,8 @@ void getScreenResolution() {
 
   screenWidth=workarea.width;
   screenHeight=workarea.height;
+
+  logger.debug("screen width x height: %d x %d", screenWidth, screenHeight);
 
   if (screenWidth<480 || screenHeight<320) {
     logger.error("minimum screen resolution is 840x320");
@@ -331,7 +334,7 @@ void bootError(const char *message) {
 
   char *msg=(char*)malloc(strlen(message)+1);
   sprintf(msg,"\n%s",message);
-  fprintf(stderr,"%s\n",message);
+  logger.error(message);
 
   GtkApplication *app = gtk_application_new ("org.rotor", G_APPLICATION_FLAGS_NONE);
 
@@ -415,10 +418,10 @@ void a2dSetup() {
     logger.info("calculated window size = %d ", windowSize);
     logger.error("unable to reach target window size of %d.", expectedSampleWindow);
     if (pct<0) {
-      logger.error("Is your i2c bus overclocked?", expectedSampleWindow);
+      bootError("Is your i2c bus overclocked?");
     } else {
-      logger.error("Target windows is larger than expected.");
-      logger.error("Unknown error");
+      logger.error("Target window is larger than expected.");
+      bootError("Unknown error, check logs");
     }
     exit(19);
 }
