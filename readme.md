@@ -29,6 +29,16 @@ Change it to:
 
     dtparam=i2c_arm=on,i2c_arm_baudrate=400000
 
+## Disable warning lights
+While you're in the boot config, you may want to disable the power indicator and lightning bolt indicator.  These indicators do not work properly due to an under sized capacitor on the RPi.  Newer models have larger capacitors, so if you have a brand new RPi 4, this step may not be necessary, but for the older RPi 4's, this indicator is extremely annotying. 
+
+    # only affects power led operation
+    dtparam=pwr_led_trigger=none
+    dtparam=pwr_led_activelow=off
+    # affects lightning bolt indicator
+    avoid_warnings=1
+
+
 
 
 ### Required GIT Hub software:
