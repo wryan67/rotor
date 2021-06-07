@@ -218,6 +218,12 @@ void voltageCatcher() {
 
 
 atomic<bool> cableDisconnectDialogActive{false};
+bool cableMonitorMessageWritten=false;
+
+void resetCableDisconnectWarning() {
+  delay(2500);
+  cableMonitorMessageWritten=false;
+}
 
 int showCableDisconnect(gpointer data) {
   bool expect=false;
@@ -225,7 +231,7 @@ int showCableDisconnect(gpointer data) {
     return false;
   }
 
-  char message[4096] = "The cable is disconnected";
+  char message[4096] = "\nThe cable is disconnected";
 
   if (currentVolts > 5.28) {
     sprintf(message,
@@ -246,10 +252,11 @@ int showCableDisconnect(gpointer data) {
   gtk_window_set_title((GtkWindow*)dialog,"cable status");
   gtk_dialog_run((GtkDialog*)dialog);
   gtk_widget_destroy (dialog);
-  thread(hideMouse).detach();
-
-
   cableDisconnectDialogActive=false;
+
+  thread(hideMouse).detach();
+  thread(resetCableDisconnectWarning).detach();
+
 
   return false;
 }
@@ -257,22 +264,21 @@ int showCableDisconnect(gpointer data) {
 
 
 void cableMonitor() {
-  bool messageWritten=false;
 
   logger.debug("cable disconnect volts = %f", cableDisconnectedVolts);
   
   while (true) {
     if (currentVolts > cableDisconnectedVolts) {
-      if (!messageWritten && mainWindow!=nullptr) {
+      if (!cableMonitorMessageWritten && mainWindow!=nullptr) {
         logger.info("cable disconnnected");
-        messageWritten=true;
+        cableMonitorMessageWritten=true;
 
 
         g_idle_add(showCableDisconnect, nullptr);
 
       }
     } else {
-      messageWritten=false;
+      cableMonitorMessageWritten=false;
     }
     delay(100);
   }
@@ -305,8 +311,8 @@ void bootError(const char *message) {
 
   thread(hideMouse).detach();
 
-  char *msg=(char*)malloc(strlen(message));
-  strcpy(msg,message);
+  char *msg=(char*)malloc(strlen(message)+1);
+  sprintf(msg,"\n%s",message);
   fprintf(stderr,"%s\n",message);
 
   GtkApplication *app = gtk_application_new ("org.rotor", G_APPLICATION_FLAGS_NONE);
