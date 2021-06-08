@@ -3,7 +3,7 @@
 # -lwiringPiPca9685 -lwiringPiDev 
 
 BINARY=rotor
-C_FLAGS="-O2 -Wall"
+C_FLAGS="-O2 -Wall -std=c++17 "
 PKG_LIBS=`pkg-config --libs gtk+-3.0`
 LIBS="-lwiringPi -lwiringPiADS1115rpi -luuid -llog4pi -lNeoPixelRPi"
 SOURCE=`find src -type f -name "*.cpp"`
