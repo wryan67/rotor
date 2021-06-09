@@ -381,7 +381,7 @@ void a2dSetup() {
 
     float targetPeriods = 3;
     float sixtyHzPeriod = 1000.0 * ( 1.0 / 60.0); // 1000 ms * 1/60;
-    float targetWindow= 8;  // round(sixtyHzPeriod * targetPeriods);  //ms
+    float targetWindow  = 16.7 / 4;  // 60Hz period / 4;  //ms
 
     logger.info("60Hz period = %.1f; targetPeriods=%.0f; targetWindow=%.1fms", sixtyHzPeriod, targetPeriods, targetWindow);
 
