@@ -66,6 +66,10 @@ Logger     logger("main");
 atomic<bool> isSettingsDialogueActive{false};
 atomic<bool> calledHideSettings{false};
 
+GtkBuilder *settingsBuilder;
+
+
+
 GtkWidget *drawingArea=nullptr;
 GtkWidget *timeWindow=nullptr;
 GObject   *mainWindow=nullptr;
@@ -88,6 +92,10 @@ char       localDateBuffer[512];
 GtkWindow  *settingsWindow;
 GtkListBox *countryListBox;
 GtkListBox *timezoneListBox;
+GtkEntry   *ssidEntry;
+GtkEntry   *passwdEntry;
+GtkCheckButton *showPasswd;
+
 vector<string> timezones;
 vector<string> countries;
 char currTimezone[4096];
@@ -376,7 +384,7 @@ void a2dSetup() {
     options.sps=5;
     logger.info("channel=%d; gain=%d; sps=%d", options.aspectVoltageChannel, options.gain, options.sps);
 
-    wiringPiISR(2,INT_EDGE_FALLING, voltageCatcher);
+    wiringPiISR(options.a2dDataReady,INT_EDGE_FALLING, voltageCatcher);
     setADS1115ContinuousMode(a2dHandle, options.aspectVoltageChannel, options.gain, options.sps);
 
     float targetPeriods = 3;
@@ -1151,7 +1159,6 @@ int updateTimezones(gpointer data) {
 
 
 void saveSettings() {
-
     auto sel = gtk_list_box_get_selected_row(timezoneListBox);
     
     if (sel!=nullptr) {
@@ -1166,36 +1173,128 @@ void saveSettings() {
       logger.info("new timezone: %s",timezones[row].c_str());
 
     }
-    // char* selection = gtk_combo_box_text_get_active_text (timezoneListBox);
+    
+    auto ssid   = gtk_entry_get_text(ssidEntry);
+    auto passwd = gtk_entry_get_text(passwdEntry);
 
+    if (strlen(ssid)>0) {
+      char tmpstr[1024];
+      sprintf(tmpstr,"%s/.ssid",getenv("HOME"));
+      FILE *ssidFile = fopen(tmpstr,"w");
+
+      if (ssidFile) {
+        fprintf(ssidFile,"%s %s\n",ssid, passwd);
+        fclose(ssidFile);
+      } else {
+        logger.warn("unable to open ssid file: %s", tmpstr);
+      }
+    }
 
     g_idle_add(hideSettings, nullptr);
 }
+bool showingRealizedIp=false;
+int showRealizedIp(gpointer data) {
 
+  char net[128];
+  char ip[128];
+  char tmpstr[1024];
+  char tmpstr2[2048];
+
+  if (showingRealizedIp) {
+    return false;
+  }
+  showingRealizedIp=true;
+
+  GtkListBox* realizedIp = (GtkListBox*) gtk_builder_get_object(settingsBuilder, "RealizedIp");
+
+  gtk_container_foreach((GtkContainer *)realizedIp, gtk_widget_destroy_noarg, nullptr);
+
+  FILE *inputFile=popen("showip.sh", "r");
+  while (fscanf(inputFile,"%s %s\n", net, ip)>0) {
+    sprintf(tmpstr,"%s:",net);
+    sprintf(tmpstr2,"%-8s%s",tmpstr,ip);
+    auto label = gtk_label_new(tmpstr2);
+    gtk_label_set_xalign ((GtkLabel*)label, 0);
+    gtk_list_box_insert(realizedIp, label, -1);
+  }
+
+  gtk_widget_show_all((GtkWidget*)realizedIp);
+  showingRealizedIp=false;
+  return false;
+}
+
+void realizedIp() {
+  while (true) {
+    usleep(1000*1000);
+
+    if (isSettingsDialogueActive) {
+      g_idle_add(showRealizedIp,nullptr);
+    }
+  }
+}
+
+void showPassword() {
+
+
+  bool show = gtk_toggle_button_get_active((GtkToggleButton*)showPasswd);
+
+  gtk_entry_set_visibility(passwdEntry, show);
+
+}
+
+
+
+void readSSID() {
+  char ssid[512];
+  char passwd[512];
+
+  ssidEntry   = (GtkEntry*) gtk_builder_get_object (settingsBuilder, "SSID");
+  passwdEntry = (GtkEntry*) gtk_builder_get_object (settingsBuilder, "WiFiPassword");
+  showPasswd  = (GtkCheckButton*) gtk_builder_get_object (settingsBuilder, "ShowPassword");
+
+  g_signal_connect (showPasswd, "toggled", G_CALLBACK (showPassword), NULL);
+
+
+  char tmpstr[1024];
+  sprintf(tmpstr,"%s/.ssid",getenv("HOME"));
+  FILE *ssidFile = fopen(tmpstr,"r");
+
+  if (!ssidFile) {
+    return;
+  }
+  fscanf(ssidFile, "%s %s", ssid, passwd);
+
+  gtk_entry_set_text(ssidEntry,   ssid);
+  gtk_entry_set_text(passwdEntry, passwd);
+  
+  fclose(ssidFile);
+
+}
 int showSettings(gpointer data) {
-    GtkBuilder *uiBuilder;
     GObject    *button;
     GError     *error=nullptr;
     char buf[4096];
 
     /* Construct a GtkBuilder instance and load our UI description */
-    uiBuilder = gtk_builder_new ();
-    if (gtk_builder_add_from_file (uiBuilder, "settings.ui", &error) == 0) {
+    settingsBuilder = gtk_builder_new ();
+    if (gtk_builder_add_from_file (settingsBuilder, "settings.ui", &error) == 0) {
         g_printerr ("Error loading file: %s\n", error->message);
         g_clear_error (&error);
         return 1;
     }
 
-    settingsWindow  = (GtkWindow*)  gtk_builder_get_object (uiBuilder, "SettingsWindow");
-    countryListBox  = (GtkListBox*) gtk_builder_get_object (uiBuilder, "CountryListBox");
-    timezoneListBox = (GtkListBox*) gtk_builder_get_object (uiBuilder, "TimezoneListBox");
+    settingsWindow  = (GtkWindow*)  gtk_builder_get_object (settingsBuilder, "SettingsWindow");
+    countryListBox  = (GtkListBox*) gtk_builder_get_object (settingsBuilder, "CountryListBox");
+    timezoneListBox = (GtkListBox*) gtk_builder_get_object (settingsBuilder, "TimezoneListBox");
 
+
+    readSSID();
 
     if (screenHeight<321) {
-      GtkScrolledWindow *sw = (GtkScrolledWindow*) gtk_builder_get_object(uiBuilder, "RegionScrolledWindow");
+      GtkScrolledWindow *sw = (GtkScrolledWindow*) gtk_builder_get_object(settingsBuilder, "RegionScrolledWindow");
       gtk_scrolled_window_set_min_content_height(sw, -1);
 
-      sw = (GtkScrolledWindow*) gtk_builder_get_object(uiBuilder, "TimezoneScrolledWindow");
+      sw = (GtkScrolledWindow*) gtk_builder_get_object(settingsBuilder, "TimezoneScrolledWindow");
       gtk_scrolled_window_set_min_content_height(sw, -1);
     }
     FILE* timezoneInput = popen("timedatectl | sed -ne 's/.*Time zone: *\\([^ ]*\\) (.*)$/\\1/p'", "r");
@@ -1238,10 +1337,10 @@ int showSettings(gpointer data) {
     gtk_widget_show_all((GtkWidget*)settingsWindow);
 
 
-    button = gtk_builder_get_object (uiBuilder, "SaveSettingsButton");
+    button = gtk_builder_get_object (settingsBuilder, "SaveSettingsButton");
     g_signal_connect (button, "clicked", G_CALLBACK (saveSettings), NULL);
 
-    button = gtk_builder_get_object (uiBuilder, "CancelSettingsButton");
+    button = gtk_builder_get_object (settingsBuilder, "CancelSettingsButton");
     g_signal_connect (button, "clicked", G_CALLBACK (cancelSettings), NULL);
     g_signal_connect (settingsWindow, "destroy", G_CALLBACK (cancelSettings), NULL);
     g_signal_connect (countryListBox, "row-selected", G_CALLBACK (updateTimezones), NULL);
@@ -1397,6 +1496,7 @@ int main(int argc, char **argv) {
     thread(timeUpdate).detach();
     thread(renderCompass).detach();
     thread(initRotorDegrees).detach();
+    thread(realizedIp).detach();
     neopixel_setup();
 
     gtk_main();

@@ -1,12 +1,16 @@
 #!/bin/ksh
 set -a
 
-OE=3
-POWER=22
-CCW=23
-BRAKE=24
-CW=25
-LIMIT=21
+# WiringPi      Header      BCM
+OE=3            # 15        22
+POWER=22        # 31        6
+CCW=23          # 33        13
+BRAKE=24        # 35        19
+CW=25           # 37        26
+LIMIT=21        # 29        5
+A2DDR=2         # 13        27
+
+SPS=5
 
 ACTIVATE=0
 DEACTIVATE=1

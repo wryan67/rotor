@@ -15,6 +15,7 @@ private:
 public:
     LogLevel logLevel   = INFO;
     bool     fullscreen = false;
+    int      a2dDataReady                   = 2;
     int      gain                           = 0;
     int      v3channel                      = 3;
     int      sps                            = 5;

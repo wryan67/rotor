@@ -91,6 +91,7 @@ bool Options::commandLineOptions(int argc, char **argv) {
         RotorPower=getEnvInt("POWER");    
         LimitSwitch=getEnvInt("LIMIT");    
         sps=getEnvInt("SPS");
+		a2dDataReady=getEnvInt("A2DDR");
     } catch (exception &e) {
         logger.error("enviornment is not setup; %s",e.what());
         return false;
