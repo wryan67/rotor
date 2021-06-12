@@ -1223,9 +1223,18 @@ int showRealizedIp(gpointer data) {
 
   GtkListBox* realizedIp = (GtkListBox*) gtk_builder_get_object(settingsBuilder, "RealizedIp");
 
+  if (realizedIp==nullptr) {
+    showingRealizedIp=false;
+    return false;
+  }
+
   gtk_container_foreach((GtkContainer *)realizedIp, gtk_widget_destroy_noarg, nullptr);
 
   FILE *inputFile=popen("showip.sh", "r");
+  if (inputFile==nullptr) {
+    showingRealizedIp=false;
+    return false;
+  }
   while (fscanf(inputFile,"%s %s\n", net, ip)>0) {
     sprintf(tmpstr,"%s:",net);
     sprintf(tmpstr2,"%-8s%s",tmpstr,ip);
@@ -1241,7 +1250,7 @@ int showRealizedIp(gpointer data) {
     gtk_label_set_xalign ((GtkLabel*)label, 0);
     gtk_list_box_insert(realizedIp, label, -1);
   }
-
+  fclose(inputFile);
   gtk_widget_show_all((GtkWidget*)realizedIp);
   showingRealizedIp=false;
   return false;
