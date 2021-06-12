@@ -1230,6 +1230,14 @@ int showRealizedIp(gpointer data) {
     sprintf(tmpstr,"%s:",net);
     sprintf(tmpstr2,"%-8s%s",tmpstr,ip);
     auto label = gtk_label_new(tmpstr2);
+
+    PangoFontDescription *df;
+    df = pango_font_description_new ();
+    pango_font_description_set_family(df,"Courier");
+    // pango_font_description_set_size(df,fontsize*PANGO_SCALE);
+    gtk_widget_modify_font(label, df);    
+    // gtk_label_set_markup((GtkLabel*)label, "<span face='Courier'>text</span>");
+
     gtk_label_set_xalign ((GtkLabel*)label, 0);
     gtk_list_box_insert(realizedIp, label, -1);
   }

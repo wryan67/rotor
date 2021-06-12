@@ -1,0 +1,67 @@
+#!/bin/ksh
+set -a
+
+# WiringPi      Header      BCM
+OE=3            # 15        22
+POWER=22        # 31        6
+CCW=23          # 33        13
+BRAKE=24        # 35        19
+CW=25           # 37        26
+LIMIT=21        # 29        5
+A2DDR=2         # 13        27
+
+SPS=5
+
+ACTIVATE=0
+DEACTIVATE=1
+
+alias start='start.sh'
+alias stop='stop.sh'
+alias restart='restart.sh'
+alias move='move.sh'
+alias taillog='taillog.sh'
+
+init() {
+  for pin in $POWER $CW $CCW $BRAKE $OE; do
+    gpio write $pin 1
+    gpio mode  $pin output
+  done
+  gpio mode $LIMIT input
+}
+
+powerOn() {
+  gpio write $POWER  $ACTIVATE
+  sleep 0.250
+}
+powerOff() {
+  gpio write $POWER  $DEACTIVATE
+}
+
+moveCW() {
+  gpio write $CW $ACTIVATE
+}
+
+moveCCW() {
+  gpio write $CCW $ACTIVATE
+}
+
+stopMotors() {
+  gpio write $CW     $DEACTIVATE
+  gpio write $CCW    $DEACTIVATE
+}
+
+engageBrake() {
+  stopMotors
+  sleep 0.250
+  gpio write $BRAKE 1
+  powerOff
+}
+
+releaseBrake() {
+  powerOn
+  gpio write $BRAKE 0
+  sleep 0.250
+}
+
+
+init
