@@ -1157,6 +1157,19 @@ int updateTimezones(gpointer data) {
   return FALSE;
 }
 
+atomic<bool> updatingWifi{false};
+void updateWifi() {
+  bool expect = false;
+
+  if (!updatingWifi.compare_exchange_strong(expect,true)) {
+    return;
+  }
+
+  system("updateWifi.sh");
+
+  updatingWifi=false;
+
+}
 
 void saveSettings() {
     auto sel = gtk_list_box_get_selected_row(timezoneListBox);
@@ -1185,6 +1198,8 @@ void saveSettings() {
       if (ssidFile) {
         fprintf(ssidFile,"%s %s\n",ssid, passwd);
         fclose(ssidFile);
+
+        thread(updateWifi).detach();
       } else {
         logger.warn("unable to open ssid file: %s", tmpstr);
       }
@@ -1192,18 +1207,19 @@ void saveSettings() {
 
     g_idle_add(hideSettings, nullptr);
 }
-bool showingRealizedIp=false;
+
+atomic<bool> showingRealizedIp{false};
 int showRealizedIp(gpointer data) {
 
   char net[128];
   char ip[128];
   char tmpstr[1024];
   char tmpstr2[2048];
+  bool expect=false;
 
-  if (showingRealizedIp) {
+  if (!showingRealizedIp.compare_exchange_strong(expect,true)) {
     return false;
   }
-  showingRealizedIp=true;
 
   GtkListBox* realizedIp = (GtkListBox*) gtk_builder_get_object(settingsBuilder, "RealizedIp");
 
