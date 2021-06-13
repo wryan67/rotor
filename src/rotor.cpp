@@ -66,12 +66,15 @@ Logger     logger("main");
 atomic<bool> isSettingsDialogueActive{false};
 atomic<bool> calledHideSettings{false};
 
+vector<string> lastRealizedIps;
+
+atomic<bool> showingRealizedIp{false};
+
+
 GtkBuilder *settingsBuilder;
 
-
-
 GtkWidget *drawingArea=nullptr;
-GtkWidget *timeWindow=nullptr;
+GtkWidget *timeWindow=nullptr;se
 GObject   *mainWindow=nullptr;
 
 GtkLabel  *utcLabel=nullptr;
@@ -1059,6 +1062,8 @@ int hideSettings(gpointer data) {
   gtk_window_close(settingsWindow);
   isSettingsDialogueActive=false;
   calledHideSettings=false;
+  lastRealizedIps.clear();
+
   thread(hideMouse).detach();
   return FALSE;
 }
@@ -1208,9 +1213,6 @@ void saveSettings() {
     g_idle_add(hideSettings, nullptr);
 }
 
-vector<string> lastRealizedIps;
-
-atomic<bool> showingRealizedIp{false};
 int showRealizedIp(gpointer data) {
 
   char net[128];
