@@ -1315,7 +1315,9 @@ void showWifiUpdatesController(GtkBuilder *settingsBuilder) {
 
 
   if (availableNetworksListBoxSignal) {
-    g_signal_handler_disconnect (availableNetworksListBox, availableNetworksListBoxSignal);
+    if (g_signal_handler_is_connected(availableNetworksListBox, availableNetworksListBoxSignal)) {
+      g_signal_handler_disconnect(availableNetworksListBox, availableNetworksListBoxSignal);
+    }
   }
 
   vector<string> currentNetworks;
@@ -1489,8 +1491,9 @@ void readSSID() {
   gtk_entry_set_text(passwdEntry, passwd);
   
   fclose(ssidFile);
-
 }
+
+
 int showSettings(gpointer data) {
     GObject    *button;
     GError     *error=nullptr;
