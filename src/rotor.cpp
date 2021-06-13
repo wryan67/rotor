@@ -1068,6 +1068,7 @@ int hideSettings(gpointer data) {
   gtk_window_close(settingsWindow);
   isSettingsDialogueActive=false;
   calledHideSettings=false;
+  availableNetworksListBoxSignal=0;
   realizedIPs.clear();
 
   thread(hideMouse).detach();
@@ -1113,13 +1114,14 @@ int timezoneScroller(gpointer data) {
 
   return FALSE;
 }
-int noOperation(gpointer data) {
-  return false;
-}
+
+int updateSSIDSetFocus(gpointer data) {
+    gtk_widget_grab_focus((GtkWidget*)passwdEntry);
+    return false;
+  }
 
 int updateSSID(gpointer data) {
-    logger.info("update ssid");
-    
+  
     auto sel = gtk_list_box_get_selected_row(availableNetworksListBox);
     if (sel==nullptr) {
       return FALSE;
@@ -1128,7 +1130,18 @@ int updateSSID(gpointer data) {
     auto row = gtk_list_box_row_get_index(sel);
 
     auto network = wifiNetworks[row].c_str();
-    logger.info("selected: %s",network);
+
+    auto currText = gtk_entry_get_text(ssidEntry);
+
+    if (strcmp(currText,network)==0) {
+      return false;
+    }
+
+    gtk_entry_set_text(ssidEntry,network);
+
+    g_idle_add(updateSSIDSetFocus,nullptr);
+
+    //@@
 
     return false;
 }
@@ -1237,9 +1250,15 @@ void saveSettings() {
     g_idle_add(hideSettings, nullptr);
 }
 
+void showWifiUpdatesDeleay() {
+  usleep(5000*1000);
+  showingWifiUpdates=false;
+}
 
 int showWifiUpdates(gpointer data) {
-
+  if (!isSettingsDialogueActive) {
+    return false;
+  }
 
   if (availableNetworksListBox==nullptr) {
     showingWifiUpdates=false;
@@ -1264,8 +1283,9 @@ int showWifiUpdates(gpointer data) {
   }
 
   gtk_widget_show_all((GtkWidget*)availableNetworksListBox);
-  showingWifiUpdates=false;
   availableNetworksListBoxSignal = g_signal_connect (availableNetworksListBox, "row-selected", G_CALLBACK (updateSSID),      NULL);
+
+  thread(showWifiUpdatesDeleay).detach();
 
   return false;
 }
@@ -1273,6 +1293,9 @@ void showWifiUpdatesController() {
 
   bool expect=false;
   if (!showingWifiUpdates.compare_exchange_strong(expect,true)) {
+    return;
+  }
+  if (!isSettingsDialogueActive) {
     return;
   }
 
@@ -1285,12 +1308,10 @@ void showWifiUpdatesController() {
     return;
   }
 
-  //  auto x = g_signal_connect (availableNetworksListBox, "row-selected", G_CALLBACK (noOperation),      NULL);
 
-  // g_signal_handlers_disconnect_by_func (availableNetworksListBox, updateSSID,      NULL);
-
-
-  g_signal_handler_disconnect (availableNetworksListBox, availableNetworksListBoxSignal);
+  if (availableNetworksListBoxSignal) {
+    g_signal_handler_disconnect (availableNetworksListBox, availableNetworksListBoxSignal);
+  }
 
   wifiNetworks.clear();
 
@@ -1310,7 +1331,9 @@ void showWifiUpdatesController() {
   }
   fclose(inputFile);
 
-  g_idle_add(showWifiUpdates,nullptr);
+  g_idle_add(showWifiUpdates,availableNetworksListBox);
+
+
   return;
 }
 
@@ -1409,6 +1432,9 @@ void showPassword() {
   bool show = gtk_toggle_button_get_active((GtkToggleButton*)showPasswd);
 
   gtk_entry_set_visibility(passwdEntry, show);
+
+  gtk_entry_grab_focus_without_selecting(passwdEntry);
+
 }
 
 
