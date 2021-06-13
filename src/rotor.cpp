@@ -1208,6 +1208,8 @@ void saveSettings() {
     g_idle_add(hideSettings, nullptr);
 }
 
+vector<string> lastRealizedIps;
+
 atomic<bool> showingRealizedIp{false};
 int showRealizedIp(gpointer data) {
 
@@ -1217,7 +1219,38 @@ int showRealizedIp(gpointer data) {
   char tmpstr2[2048];
   bool expect=false;
 
+  vector<string> realizedIPs;
+
   if (!showingRealizedIp.compare_exchange_strong(expect,true)) {
+    return false;
+  }
+
+  FILE *inputFile=popen("showip.sh", "r");
+  if (inputFile==nullptr) {
+    showingRealizedIp=false;
+    return false;
+  }
+  while (fscanf(inputFile,"%s %s\n", net, ip)>0) {
+    sprintf(tmpstr,"%s:",net);
+    sprintf(tmpstr2,"%-8s%s",tmpstr,ip);
+    realizedIPs.push_back(tmpstr2);
+  }
+  fclose(inputFile);
+
+
+  bool changes = !(lastRealizedIps.size()==realizedIPs.size());
+
+  if (!changes && realizedIPs.size()>0) {
+    for (uint i=0;i<realizedIPs.size();++i) {
+      if (realizedIPs[i].compare(lastRealizedIps[i])) {
+        changes=true;
+        break;
+      }
+    }
+  }
+
+  if (!changes) {
+    showingRealizedIp=false;
     return false;
   }
 
@@ -1230,27 +1263,22 @@ int showRealizedIp(gpointer data) {
 
   gtk_container_foreach((GtkContainer *)realizedIp, gtk_widget_destroy_noarg, nullptr);
 
-  FILE *inputFile=popen("showip.sh", "r");
-  if (inputFile==nullptr) {
-    showingRealizedIp=false;
-    return false;
-  }
-  while (fscanf(inputFile,"%s %s\n", net, ip)>0) {
-    sprintf(tmpstr,"%s:",net);
-    sprintf(tmpstr2,"%-8s%s",tmpstr,ip);
-    auto label = gtk_label_new(tmpstr2);
+  lastRealizedIps.clear();
+  for (auto s: realizedIPs) {
+    lastRealizedIps.push_back(s.c_str());
+    auto label = gtk_label_new(s.c_str());
 
     PangoFontDescription *df;
     df = pango_font_description_new ();
     pango_font_description_set_family(df,"Courier");
-    // pango_font_description_set_size(df,fontsize*PANGO_SCALE);
+    pango_font_description_set_size(df,10*PANGO_SCALE);
     gtk_widget_modify_font(label, df);    
     // gtk_label_set_markup((GtkLabel*)label, "<span face='Courier'>text</span>");
 
     gtk_label_set_xalign ((GtkLabel*)label, 0);
     gtk_list_box_insert(realizedIp, label, -1);
   }
-  fclose(inputFile);
+
   gtk_widget_show_all((GtkWidget*)realizedIp);
   showingRealizedIp=false;
   return false;
@@ -1268,13 +1296,10 @@ void realizedIp() {
 
 void showPassword() {
 
-
   bool show = gtk_toggle_button_get_active((GtkToggleButton*)showPasswd);
 
   gtk_entry_set_visibility(passwdEntry, show);
-
 }
-
 
 
 void readSSID() {
