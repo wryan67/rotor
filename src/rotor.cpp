@@ -74,7 +74,6 @@ atomic<bool> showingRealizedIp{false};
 atomic<bool> showingWifiUpdates{false};
 
 
-GtkBuilder *settingsBuilder;
 
 GtkWidget *drawingArea=nullptr;
 GtkWidget *timeWindow=nullptr;
@@ -95,6 +94,7 @@ GtkLabel  *localDate=nullptr;
 char       localTimeBuffer[512];
 char       localDateBuffer[512];
 
+GtkBuilder *settingsBuilder;
 GtkWindow  *settingsWindow;
 GtkListBox *countryListBox;
 GtkListBox *timezoneListBox;
@@ -1069,6 +1069,7 @@ int hideSettings(gpointer data) {
   isSettingsDialogueActive=false;
   calledHideSettings=false;
   availableNetworksListBoxSignal=0;
+  settingsBuilder=0;
   realizedIPs.clear();
 
   thread(hideMouse).detach();
@@ -1250,33 +1251,17 @@ void saveSettings() {
     g_idle_add(hideSettings, nullptr);
 }
 
-void showWifiUpdatesDeleay() {
+void showWifiUpdatesDelay() {
   usleep(5000*1000);
   showingWifiUpdates=false;
 }
 
-int showWifiUpdates(gpointer data) {
-  if (!isSettingsDialogueActive) {
-    return false;
-  }
-
-  if (availableNetworksListBox==nullptr) {
-    showingWifiUpdates=false;
-    availableNetworksListBoxSignal = g_signal_connect (availableNetworksListBox, "row-selected", G_CALLBACK (updateSSID),      NULL);
-    return false;
-  }
-
+int updateAvailableNetworks(GtkListBox *availableNetworksListBox) {
 
   gtk_container_foreach((GtkContainer *)availableNetworksListBox, gtk_widget_destroy_noarg, nullptr);
 
   for (auto s: wifiNetworks) {
     auto label = gtk_label_new(s.c_str());
-
-    // PangoFontDescription *df;
-    // df = pango_font_description_new ();
-    // pango_font_description_set_family(df,"Courier");
-    // pango_font_description_set_size(df,10*PANGO_SCALE);
-    // gtk_widget_modify_font(label, df);    
 
     gtk_label_set_xalign ((GtkLabel*)label, 0);
     gtk_list_box_insert(availableNetworksListBox, label, -1);
@@ -1285,11 +1270,31 @@ int showWifiUpdates(gpointer data) {
   gtk_widget_show_all((GtkWidget*)availableNetworksListBox);
   availableNetworksListBoxSignal = g_signal_connect (availableNetworksListBox, "row-selected", G_CALLBACK (updateSSID),      NULL);
 
-  thread(showWifiUpdatesDeleay).detach();
+  return false;
+}
+
+int showWifiUpdates(gpointer data) {
+  if (!isSettingsDialogueActive || !data) {
+    return false;
+  }
+
+  GtkBuilder *settingsBuilder=(GtkBuilder*)data;
+  GtkListBox *availableNetworksListBox = (GtkListBox*) gtk_builder_get_object (settingsBuilder, "AvailableNetworks");
+
+  if (availableNetworksListBox==nullptr) {
+    showingWifiUpdates=false;
+    return false;
+  }
+
+  updateAvailableNetworks(availableNetworksListBox);
+
+  thread(showWifiUpdatesDelay).detach();
 
   return false;
 }
-void showWifiUpdatesController() {
+
+
+void showWifiUpdatesController(GtkBuilder *settingsBuilder) {
 
   bool expect=false;
   if (!showingWifiUpdates.compare_exchange_strong(expect,true)) {
@@ -1313,7 +1318,7 @@ void showWifiUpdatesController() {
     g_signal_handler_disconnect (availableNetworksListBox, availableNetworksListBoxSignal);
   }
 
-  wifiNetworks.clear();
+  vector<string> currentNetworks;
 
   while (fgets(tmpstr, sizeof(tmpstr), inputFile)) {
     int len=strlen(tmpstr);
@@ -1327,17 +1332,39 @@ void showWifiUpdatesController() {
 
     sscanf(tmpstr,"%d,", &strength);
 
-    wifiNetworks.push_back(network);
+    currentNetworks.push_back(network);
   }
   fclose(inputFile);
 
-  g_idle_add(showWifiUpdates,availableNetworksListBox);
+   bool changed = (currentNetworks.size() != wifiNetworks.size());
 
+  if (!changed && currentNetworks.size()>0) {
+    for (uint i=0; i<currentNetworks.size();++i) {
+      if (currentNetworks[i].compare(wifiNetworks[i])) {
+        changed=true;
+        break;
+      }
+    }       
+  }
+
+  if (!changed || currentNetworks.size()<1) {
+    showingWifiUpdates=false;
+    return;
+  }
+
+  wifiNetworks.clear();
+  for (auto s: currentNetworks) {
+    wifiNetworks.push_back(s);
+  }
+  g_idle_add(showWifiUpdates,settingsBuilder);
 
   return;
 }
 
 int showRealizedIp(gpointer data) {
+  if (!settingsBuilder) {
+    return false;
+  }
     GtkListBox* realizedIp = (GtkListBox*) gtk_builder_get_object(settingsBuilder, "RealizedIp");
 
   if (realizedIp==nullptr) {
@@ -1392,18 +1419,18 @@ void showRealizedIpController() {
   fclose(inputFile);
 
 
-  bool changes = !(realizedIPs.size()==currRealizedIPs.size());
+  bool changed = (realizedIPs.size() != currRealizedIPs.size());
 
-  if (!changes && currRealizedIPs.size()>0) {
+  if (!changed && currRealizedIPs.size()>0) {
     for (uint i=0;i<currRealizedIPs.size();++i) {
       if (currRealizedIPs[i].compare(realizedIPs[i])) {
-        changes=true;
+        changed=true;
         break;
       }
     }
   }
 
-  if (!changes) {
+  if (!changed) {
     showingRealizedIp=false;
     return;
   }
@@ -1422,7 +1449,7 @@ void wifiUpdate() {
 
     if (isSettingsDialogueActive) {
       thread(showRealizedIpController).detach();
-      thread(showWifiUpdatesController).detach();      
+      thread(showWifiUpdatesController,settingsBuilder).detach();      
     }
   }
 }
@@ -1529,8 +1556,11 @@ int showSettings(gpointer data) {
       }
     }
 
+
+
     fclose(timezoneInput);
     updateTimezones(nullptr);
+    updateAvailableNetworks(availableNetworksListBox);
     gtk_widget_show_all((GtkWidget*)settingsWindow);
 
 
