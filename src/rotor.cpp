@@ -9,6 +9,7 @@
 #include <neopixel.h>  
 #include <atomic>
 #include <vector>
+#include <mutex>
 
 #include <time.h>
 #include <sys/time.h>
@@ -67,6 +68,7 @@ atomic<bool> isSettingsDialogueActive{false};
 atomic<bool> calledHideSettings{false};
 
 vector<string> realizedIPs;
+vector<string> wifiNetworks;
 
 atomic<bool> showingRealizedIp{false};
 atomic<bool> showingWifiUpdates{false};
@@ -96,6 +98,8 @@ char       localDateBuffer[512];
 GtkWindow  *settingsWindow;
 GtkListBox *countryListBox;
 GtkListBox *timezoneListBox;
+GtkListBox *availableNetworksListBox;
+gulong      availableNetworksListBoxSignal;
 GtkEntry   *ssidEntry;
 GtkEntry   *passwdEntry;
 GtkCheckButton *showPasswd;
@@ -110,6 +114,7 @@ bool  forceCompassRedraw=false;
 bool  forceVoltageDebugDisplay=false;
 
 mutex displayLock;
+mutex pickSSID;
 
 GtkWidget *degreeInputBox;
 
@@ -1108,7 +1113,25 @@ int timezoneScroller(gpointer data) {
 
   return FALSE;
 }
+int noOperation(gpointer data) {
+  return false;
+}
 
+int updateSSID(gpointer data) {
+    logger.info("update ssid");
+    
+    auto sel = gtk_list_box_get_selected_row(availableNetworksListBox);
+    if (sel==nullptr) {
+      return FALSE;
+    }
+
+    auto row = gtk_list_box_row_get_index(sel);
+
+    auto network = wifiNetworks[row].c_str();
+    logger.info("selected: %s",network);
+
+    return false;
+}
 
 int updateTimezones(gpointer data) {
     char buf[4096];
@@ -1214,18 +1237,18 @@ void saveSettings() {
     g_idle_add(hideSettings, nullptr);
 }
 
-vector<string> wifiNetworks;
 
 int showWifiUpdates(gpointer data) {
 
-    GtkListBox* availableNetworks = (GtkListBox*) gtk_builder_get_object(settingsBuilder, "AvailableNetworks");
 
-  if (availableNetworks==nullptr) {
+  if (availableNetworksListBox==nullptr) {
     showingWifiUpdates=false;
+    availableNetworksListBoxSignal = g_signal_connect (availableNetworksListBox, "row-selected", G_CALLBACK (updateSSID),      NULL);
     return false;
   }
 
-  gtk_container_foreach((GtkContainer *)availableNetworks, gtk_widget_destroy_noarg, nullptr);
+
+  gtk_container_foreach((GtkContainer *)availableNetworksListBox, gtk_widget_destroy_noarg, nullptr);
 
   for (auto s: wifiNetworks) {
     auto label = gtk_label_new(s.c_str());
@@ -1237,11 +1260,13 @@ int showWifiUpdates(gpointer data) {
     // gtk_widget_modify_font(label, df);    
 
     gtk_label_set_xalign ((GtkLabel*)label, 0);
-    gtk_list_box_insert(availableNetworks, label, -1);
+    gtk_list_box_insert(availableNetworksListBox, label, -1);
   }
 
-  gtk_widget_show_all((GtkWidget*)availableNetworks);
+  gtk_widget_show_all((GtkWidget*)availableNetworksListBox);
   showingWifiUpdates=false;
+  availableNetworksListBoxSignal = g_signal_connect (availableNetworksListBox, "row-selected", G_CALLBACK (updateSSID),      NULL);
+
   return false;
 }
 void showWifiUpdatesController() {
@@ -1250,16 +1275,23 @@ void showWifiUpdatesController() {
   if (!showingWifiUpdates.compare_exchange_strong(expect,true)) {
     return;
   }
-  logger.info("---------------- show wifi updates ----------------");
 
   char tmpstr[8192];
 
   FILE *inputFile=popen("shownetworks.sh", "r");
   if (inputFile==nullptr) {
-    logger.info("unable to open shownetworks.h");
+    logger.error("unable to open shownetworks.h");
     showingWifiUpdates=false;
     return;
   }
+
+  //  auto x = g_signal_connect (availableNetworksListBox, "row-selected", G_CALLBACK (noOperation),      NULL);
+
+  // g_signal_handlers_disconnect_by_func (availableNetworksListBox, updateSSID,      NULL);
+
+
+  g_signal_handler_disconnect (availableNetworksListBox, availableNetworksListBoxSignal);
+
   wifiNetworks.clear();
 
   while (fgets(tmpstr, sizeof(tmpstr), inputFile)) {
@@ -1274,7 +1306,6 @@ void showWifiUpdatesController() {
 
     sscanf(tmpstr,"%d,", &strength);
 
-    logger.info("%5d %s",strength, network);
     wifiNetworks.push_back(network);
   }
   fclose(inputFile);
@@ -1423,7 +1454,7 @@ int showSettings(gpointer data) {
     settingsWindow  = (GtkWindow*)  gtk_builder_get_object (settingsBuilder, "SettingsWindow");
     countryListBox  = (GtkListBox*) gtk_builder_get_object (settingsBuilder, "CountryListBox");
     timezoneListBox = (GtkListBox*) gtk_builder_get_object (settingsBuilder, "TimezoneListBox");
-
+    availableNetworksListBox = (GtkListBox*) gtk_builder_get_object (settingsBuilder, "AvailableNetworks");
 
     readSSID();
 
@@ -1432,6 +1463,9 @@ int showSettings(gpointer data) {
       gtk_scrolled_window_set_min_content_height(sw, -1);
 
       sw = (GtkScrolledWindow*) gtk_builder_get_object(settingsBuilder, "TimezoneScrolledWindow");
+      gtk_scrolled_window_set_min_content_height(sw, -1);
+
+      sw = (GtkScrolledWindow*) gtk_builder_get_object(settingsBuilder, "AvailableNetworksScrolledWindow");
       gtk_scrolled_window_set_min_content_height(sw, -1);
     }
     FILE* timezoneInput = popen("timedatectl | sed -ne 's/.*Time zone: *\\([^ ]*\\) (.*)$/\\1/p'", "r");
@@ -1478,9 +1512,10 @@ int showSettings(gpointer data) {
     g_signal_connect (button, "clicked", G_CALLBACK (saveSettings), NULL);
 
     button = gtk_builder_get_object (settingsBuilder, "CancelSettingsButton");
-    g_signal_connect (button, "clicked", G_CALLBACK (cancelSettings), NULL);
-    g_signal_connect (settingsWindow, "destroy", G_CALLBACK (cancelSettings), NULL);
-    g_signal_connect (countryListBox, "row-selected", G_CALLBACK (updateTimezones), NULL);
+    g_signal_connect (button,            "clicked",      G_CALLBACK (cancelSettings),  NULL);
+    g_signal_connect (settingsWindow,    "destroy",      G_CALLBACK (cancelSettings),  NULL);
+    g_signal_connect (countryListBox,    "row-selected", G_CALLBACK (updateTimezones), NULL);
+    availableNetworksListBoxSignal = g_signal_connect (availableNetworksListBox, "row-selected", G_CALLBACK (updateSSID),      NULL);
 
 
     return FALSE;
