@@ -145,6 +145,9 @@
                       <object class="GtkAccelLabel" id="local-label">
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Local</property>
+                        <attributes>
+                          <attribute name="font-desc" value="Quicksand Light, Bold 14"/>
+                        </attributes>
                         <style>
                           <class name="TimeWindowCSS"/>
                         </style>

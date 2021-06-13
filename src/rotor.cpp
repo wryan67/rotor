@@ -30,6 +30,8 @@ bool debug=false;
 #define MCP3008_SINGLE  8
 #define MCP3008_DIFF    0
 
+int screenBreakpoint=320;
+
 bool cwLimitPoint=false;
 int  ADS1115_ADDRESS=0x48;
 int  a2dHandle=-1;
@@ -448,6 +450,9 @@ int textBoxWidgetUpdate(gpointer data) {
     return 0;
 }
 
+PangoFontDescription *timeFont;
+PangoFontDescription *dateFont;
+bool updateTimeFontSize=false;
 int timeWidgetUpdate(gpointer data) {
 
     gtk_label_set_text(utcTime, utcTimeBuffer);
@@ -455,6 +460,45 @@ int timeWidgetUpdate(gpointer data) {
     
     gtk_label_set_text(localTime, localTimeBuffer);
     gtk_label_set_text(localDate, localDateBuffer);
+
+
+    if (!updateTimeFontSize && screenHeight>screenBreakpoint) {
+      updateTimeFontSize=true;
+      timeFont = pango_font_description_new ();
+      pango_font_description_set_family(timeFont,"DejaVu Sans Mono");
+      pango_font_description_set_weight(timeFont, PANGO_WEIGHT_BOLD);
+      pango_font_description_set_size(timeFont,22*PANGO_SCALE);
+
+      dateFont = pango_font_description_new ();
+      pango_font_description_set_family(dateFont,"Quicksand Light");
+      pango_font_description_set_weight(dateFont, PANGO_WEIGHT_BOLD);
+      pango_font_description_set_size(dateFont,18*PANGO_SCALE);
+
+
+      auto attributes = gtk_label_get_attributes(utcTime);
+      auto attr = pango_attr_font_desc_new(timeFont);
+      pango_attr_list_change(attributes, attr);
+
+      attributes = gtk_label_get_attributes(localTime);
+      attr = pango_attr_font_desc_new(timeFont);
+      pango_attr_list_change(attributes, attr);
+
+      attributes = gtk_label_get_attributes(localDate);
+      attr = pango_attr_font_desc_new(dateFont);
+      pango_attr_list_change(attributes, attr);
+
+      attributes = gtk_label_get_attributes(utcDate);
+      attr = pango_attr_font_desc_new(dateFont);
+      pango_attr_list_change(attributes, attr);
+
+
+
+    }
+//    attributes->
+
+    // gtk_widget_modify_font((GtkWidget*)localTime, df);  
+    // gtk_widget_modify_font((GtkWidget*)utcTime, df);  
+
 
     return 0;
 }
@@ -943,7 +987,6 @@ float getDegree(float volts) {
     return (r2/options.aspectVariableResistorOhms)*360.0;
 }
 
-int screenBreakpoint=320;
 
 void timeUpdate() { 
   // old: 480x320
@@ -955,6 +998,7 @@ void timeUpdate() {
     gtk_widget_set_visible((GtkWidget*)localLabel,     true);
     gtk_widget_set_visible((GtkWidget*)localTime,      true);
     gtk_widget_set_visible((GtkWidget*)localDate,      true);
+
   }
 
   while(true) {    
@@ -1363,6 +1407,8 @@ void showWifiUpdatesController(GtkBuilder *settingsBuilder) {
   return;
 }
 
+PangoFontDescription *realizedIPFont=nullptr;
+
 int showRealizedIp(gpointer data) {
   if (!settingsBuilder) {
     return false;
@@ -1379,13 +1425,15 @@ int showRealizedIp(gpointer data) {
   for (auto s: realizedIPs) {
     auto label = gtk_label_new(s.c_str());
 
-    PangoFontDescription *df;
-    df = pango_font_description_new ();
-    pango_font_description_set_family(df,"Courier");
-    pango_font_description_set_size(df,10*PANGO_SCALE);
-    gtk_widget_modify_font(label, df);    
+    if (realizedIPFont==nullptr) {
+      realizedIPFont = pango_font_description_new ();
+      pango_font_description_set_family(realizedIPFont,"Courier");
+      pango_font_description_set_size(realizedIPFont,10*PANGO_SCALE);
+    }    
+    
     // gtk_label_set_markup((GtkLabel*)label, "<span face='Courier'>text</span>");
 
+    gtk_widget_modify_font(label, realizedIPFont);    
     gtk_label_set_xalign ((GtkLabel*)label, 0);
     gtk_list_box_insert(realizedIp, label, -1);
   }
@@ -1698,6 +1746,7 @@ int main(int argc, char **argv) {
     setButton(uiBuilder, "nwButton", "clicked", G_CALLBACK(moveTo), &directional.nw);
     setButton(uiBuilder, "neButton", "clicked", G_CALLBACK(moveTo), &directional.ne);
 
+  
 
 
     degreeInputBox = (GtkWidget *) gtk_builder_get_object (uiBuilder, "DegreeInputBox");
