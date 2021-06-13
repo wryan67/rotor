@@ -450,17 +450,11 @@ int textBoxWidgetUpdate(gpointer data) {
     return 0;
 }
 
+bool updateTimeFontSize=false;
 PangoFontDescription *timeFont;
 PangoFontDescription *dateFont;
-bool updateTimeFontSize=false;
+
 int timeWidgetUpdate(gpointer data) {
-
-    gtk_label_set_text(utcTime, utcTimeBuffer);
-    gtk_label_set_text(utcDate, utcDateBuffer);
-    
-    gtk_label_set_text(localTime, localTimeBuffer);
-    gtk_label_set_text(localDate, localDateBuffer);
-
 
     if (!updateTimeFontSize && screenHeight>screenBreakpoint) {
       updateTimeFontSize=true;
@@ -490,15 +484,13 @@ int timeWidgetUpdate(gpointer data) {
       attributes = gtk_label_get_attributes(utcDate);
       attr = pango_attr_font_desc_new(dateFont);
       pango_attr_list_change(attributes, attr);
-
-
-
     }
-//    attributes->
 
-    // gtk_widget_modify_font((GtkWidget*)localTime, df);  
-    // gtk_widget_modify_font((GtkWidget*)utcTime, df);  
-
+    gtk_label_set_text(utcTime, utcTimeBuffer);
+    gtk_label_set_text(utcDate, utcDateBuffer);
+    
+    gtk_label_set_text(localTime, localTimeBuffer);
+    gtk_label_set_text(localDate, localDateBuffer);
 
     return 0;
 }
