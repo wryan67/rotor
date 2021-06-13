@@ -66,15 +66,16 @@ Logger     logger("main");
 atomic<bool> isSettingsDialogueActive{false};
 atomic<bool> calledHideSettings{false};
 
-vector<string> lastRealizedIps;
+vector<string> realizedIPs;
 
 atomic<bool> showingRealizedIp{false};
+atomic<bool> showingWifiUpdates{false};
 
 
 GtkBuilder *settingsBuilder;
 
 GtkWidget *drawingArea=nullptr;
-GtkWidget *timeWindow=nullptr;se
+GtkWidget *timeWindow=nullptr;
 GObject   *mainWindow=nullptr;
 
 GtkLabel  *utcLabel=nullptr;
@@ -1062,7 +1063,7 @@ int hideSettings(gpointer data) {
   gtk_window_close(settingsWindow);
   isSettingsDialogueActive=false;
   calledHideSettings=false;
-  lastRealizedIps.clear();
+  realizedIPs.clear();
 
   thread(hideMouse).detach();
   return FALSE;
@@ -1213,50 +1214,77 @@ void saveSettings() {
     g_idle_add(hideSettings, nullptr);
 }
 
-int showRealizedIp(gpointer data) {
+vector<string> wifiNetworks;
 
-  char net[128];
-  char ip[128];
-  char tmpstr[1024];
-  char tmpstr2[2048];
+int showWifiUpdates(gpointer data) {
+
+    GtkListBox* availableNetworks = (GtkListBox*) gtk_builder_get_object(settingsBuilder, "AvailableNetworks");
+
+  if (availableNetworks==nullptr) {
+    showingWifiUpdates=false;
+    return false;
+  }
+
+  gtk_container_foreach((GtkContainer *)availableNetworks, gtk_widget_destroy_noarg, nullptr);
+
+  for (auto s: wifiNetworks) {
+    auto label = gtk_label_new(s.c_str());
+
+    // PangoFontDescription *df;
+    // df = pango_font_description_new ();
+    // pango_font_description_set_family(df,"Courier");
+    // pango_font_description_set_size(df,10*PANGO_SCALE);
+    // gtk_widget_modify_font(label, df);    
+
+    gtk_label_set_xalign ((GtkLabel*)label, 0);
+    gtk_list_box_insert(availableNetworks, label, -1);
+  }
+
+  gtk_widget_show_all((GtkWidget*)availableNetworks);
+  showingWifiUpdates=false;
+  return false;
+}
+void showWifiUpdatesController() {
+
   bool expect=false;
-
-  vector<string> realizedIPs;
-
-  if (!showingRealizedIp.compare_exchange_strong(expect,true)) {
-    return false;
+  if (!showingWifiUpdates.compare_exchange_strong(expect,true)) {
+    return;
   }
+  logger.info("---------------- show wifi updates ----------------");
 
-  FILE *inputFile=popen("showip.sh", "r");
+  char tmpstr[8192];
+
+  FILE *inputFile=popen("shownetworks.sh", "r");
   if (inputFile==nullptr) {
-    showingRealizedIp=false;
-    return false;
+    logger.info("unable to open shownetworks.h");
+    showingWifiUpdates=false;
+    return;
   }
-  while (fscanf(inputFile,"%s %s\n", net, ip)>0) {
-    sprintf(tmpstr,"%s:",net);
-    sprintf(tmpstr2,"%-8s%s",tmpstr,ip);
-    realizedIPs.push_back(tmpstr2);
+  wifiNetworks.clear();
+
+  while (fgets(tmpstr, sizeof(tmpstr), inputFile)) {
+    int len=strlen(tmpstr);
+    if (tmpstr[len-1]==10) tmpstr[len-1]=0;
+    int strength;
+    char *comma=strstr(tmpstr,",");
+    char *network=comma+1;
+    if (!comma) {
+      continue;
+    }
+
+    sscanf(tmpstr,"%d,", &strength);
+
+    logger.info("%5d %s",strength, network);
+    wifiNetworks.push_back(network);
   }
   fclose(inputFile);
 
+  g_idle_add(showWifiUpdates,nullptr);
+  return;
+}
 
-  bool changes = !(lastRealizedIps.size()==realizedIPs.size());
-
-  if (!changes && realizedIPs.size()>0) {
-    for (uint i=0;i<realizedIPs.size();++i) {
-      if (realizedIPs[i].compare(lastRealizedIps[i])) {
-        changes=true;
-        break;
-      }
-    }
-  }
-
-  if (!changes) {
-    showingRealizedIp=false;
-    return false;
-  }
-
-  GtkListBox* realizedIp = (GtkListBox*) gtk_builder_get_object(settingsBuilder, "RealizedIp");
+int showRealizedIp(gpointer data) {
+    GtkListBox* realizedIp = (GtkListBox*) gtk_builder_get_object(settingsBuilder, "RealizedIp");
 
   if (realizedIp==nullptr) {
     showingRealizedIp=false;
@@ -1265,9 +1293,7 @@ int showRealizedIp(gpointer data) {
 
   gtk_container_foreach((GtkContainer *)realizedIp, gtk_widget_destroy_noarg, nullptr);
 
-  lastRealizedIps.clear();
   for (auto s: realizedIPs) {
-    lastRealizedIps.push_back(s.c_str());
     auto label = gtk_label_new(s.c_str());
 
     PangoFontDescription *df;
@@ -1286,12 +1312,63 @@ int showRealizedIp(gpointer data) {
   return false;
 }
 
-void realizedIp() {
+void showRealizedIpController() {  
+  char net[128];
+  char ip[128];
+  char tmpstr[1024];
+  char tmpstr2[2048];
+  bool expect=false;
+
+  vector<string> currRealizedIPs;
+
+  if (!showingRealizedIp.compare_exchange_strong(expect,true)) {
+    return;
+  }
+
+  FILE *inputFile=popen("showip.sh", "r");
+  if (inputFile==nullptr) {
+    showingRealizedIp=false;
+    return;
+  }
+  while (fscanf(inputFile,"%s %s\n", net, ip)>0) {
+    sprintf(tmpstr,"%s:",net);
+    sprintf(tmpstr2,"%-8s%s",tmpstr,ip);
+    currRealizedIPs.push_back(tmpstr2);
+  }
+  fclose(inputFile);
+
+
+  bool changes = !(realizedIPs.size()==currRealizedIPs.size());
+
+  if (!changes && currRealizedIPs.size()>0) {
+    for (uint i=0;i<currRealizedIPs.size();++i) {
+      if (currRealizedIPs[i].compare(realizedIPs[i])) {
+        changes=true;
+        break;
+      }
+    }
+  }
+
+  if (!changes) {
+    showingRealizedIp=false;
+    return;
+  }
+
+  realizedIPs.clear();
+  for (auto s: currRealizedIPs) {
+    realizedIPs.push_back(s.c_str());
+  }
+
+  g_idle_add(showRealizedIp,nullptr);
+}
+
+void wifiUpdate() {
   while (true) {
     usleep(1000*1000);
 
     if (isSettingsDialogueActive) {
-      g_idle_add(showRealizedIp,nullptr);
+      thread(showRealizedIpController).detach();
+      thread(showWifiUpdatesController).detach();      
     }
   }
 }
@@ -1556,7 +1633,7 @@ int main(int argc, char **argv) {
     thread(timeUpdate).detach();
     thread(renderCompass).detach();
     thread(initRotorDegrees).detach();
-    thread(realizedIp).detach();
+    thread(wifiUpdate).detach();
     neopixel_setup();
 
     gtk_main();
