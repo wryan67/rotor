@@ -9,9 +9,7 @@ The rotor tested with this software utilizes a 500Ω variable resistor which loo
 
 System Libraries:
 
-    $ sudo apt install libgtk-3-dev
-    $ sudo apt install glade
-    $ sudo apt install xdotool
+    $ sudo apt install libgtk-3-dev glade xdotool gawk
 
 ## Requirements
 
