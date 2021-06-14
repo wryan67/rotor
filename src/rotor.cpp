@@ -1409,6 +1409,7 @@ void showRealizedIPDelay() {
 
 int showRealizedIp(gpointer data) {
   if (!settingsBuilder) {
+    showingRealizedIp=false;
     return false;
   }
     GtkListBox* realizedIp = (GtkListBox*) gtk_builder_get_object(settingsBuilder, "RealizedIp");
@@ -1454,7 +1455,7 @@ void detectInternet() {
   if (!detectingIntenet.compare_exchange_strong(expect,true)) {
     return;
   }
-  int rs=system("ping -c1 8.8.8.8");
+  int rs=system("ping -c1 8.8.8.8 > /dev/null 2>&1");
 
   hasInternet=(rs==0);
 
