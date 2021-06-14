@@ -10,6 +10,7 @@
 #include <atomic>
 #include <vector>
 #include <mutex>
+#include <algorithm>
 
 #include <time.h>
 #include <sys/time.h>
@@ -107,6 +108,8 @@ GtkEntry   *ssidEntry;
 GtkEntry   *passwdEntry;
 GtkCheckButton *showPasswd;
 
+vector<string> systemCountries;
+vector<string> systemTimezones;
 vector<string> timezones;
 vector<string> countries;
 char currTimezone[4096];
@@ -1185,11 +1188,9 @@ int updateSSID(gpointer data) {
 }
 
 int updateTimezones(gpointer data) {
-    char buf[4096];
     int options;
     const char *currCountry=nullptr;
 
-    FILE *timezoneInput = popen("timedatectl list-timezones", "r");
 
     auto sel = gtk_list_box_get_selected_row(countryListBox);
     if (sel!=nullptr) {
@@ -1204,8 +1205,10 @@ int updateTimezones(gpointer data) {
     timezones.clear();
     int selectedRow=-1;
     options=-1;
-    while (fgets(buf, sizeof(buf), timezoneInput) != nullptr) {
-      buf[strlen(buf)-1]=0;
+
+    for (string sysZone: systemTimezones) {
+      char buf[4096];
+      strcpy(buf,sysZone.c_str());
 
       if (strncmp(buf, currCountry, strlen(currCountry))!=0) {
         continue;
@@ -1225,7 +1228,6 @@ int updateTimezones(gpointer data) {
         auto row = gtk_list_box_get_row_at_index(timezoneListBox, selectedRow);
         gtk_list_box_select_row(timezoneListBox, row);
     }
-    fclose(timezoneInput);
 
     gtk_widget_show_all((GtkWidget*)timezoneListBox);
 
@@ -1564,11 +1566,39 @@ void readSSID() {
   fclose(ssidFile);
 }
 
+bool timezonesInitialized=false;
+
+#define vectorContainsString(v,e) (std::find((v).begin(), (v).end(), e)!=(v).end())
+
+void initializeTimezones() {
+  char buf[4096];
+
+  systemTimezones.clear();
+  systemCountries.clear();
+
+  FILE *timezoneInput = popen("timedatectl list-timezones", "r");
+
+  while (fgets(buf, sizeof(buf), timezoneInput) != nullptr) {
+    buf[strlen(buf)-1]=0;
+    systemTimezones.push_back(buf);
+
+    char *slash=strstr(buf,"/");
+    if (slash) {
+      *slash=0;
+    }
+
+    if (!vectorContainsString(systemCountries,buf)) {
+      systemCountries.push_back(buf);
+    }
+  }
+
+  timezonesInitialized=true;
+}
+
 
 int showSettings(gpointer data) {
     GObject    *button;
     GError     *error=nullptr;
-    char buf[4096];
 
     /* Construct a GtkBuilder instance and load our UI description */
     settingsBuilder = gtk_builder_new ();
@@ -1595,11 +1625,11 @@ int showSettings(gpointer data) {
       sw = (GtkScrolledWindow*) gtk_builder_get_object(settingsBuilder, "AvailableNetworksScrolledWindow");
       gtk_scrolled_window_set_min_content_height(sw, -1);
     }
-    FILE* timezoneInput = popen("timedatectl | sed -ne 's/.*Time zone: *\\([^ ]*\\) (.*)$/\\1/p'", "r");
+    FILE* timezoneInputFile = popen("timedatectl | sed -ne 's/.*Time zone: *\\([^ ]*\\) (.*)$/\\1/p'", "r");
 
-    fgets(currTimezone,sizeof(currTimezone),timezoneInput);
+    fgets(currTimezone,sizeof(currTimezone),timezoneInputFile);
     currTimezone[strlen(currTimezone)-1]=0;
-    fclose(timezoneInput);
+    fclose(timezoneInputFile);
 
     char currCountry[4096];
 
@@ -1608,31 +1638,30 @@ int showSettings(gpointer data) {
       currCountry[i]=currTimezone[i];
     }
 
-    logger.info("current timezone: %s",currTimezone);
+    logger.info("current timezone: %s %s",currTimezone, currCountry);
 
-    timezoneInput = popen("timedatectl list-timezones | awk -F/ '{print $1}' | sort -u", "r");
+    while (!timezonesInitialized) {
+      usleep(10000);
+    }
 
     GtkListBoxRow *row=nullptr;
     
     int options=-1;
-    while (fgets(buf, sizeof(buf), timezoneInput) != nullptr) {
+    for (string buf: systemCountries) {
       ++options;
-      buf[strlen(buf)-1]=0;
       countries.push_back(buf);
-      auto label = gtk_label_new(buf);
+      auto label = gtk_label_new(buf.c_str());
       gtk_label_set_xalign ((GtkLabel*)label, 0);
       gtk_list_box_insert(countryListBox, label, options);
 
 
-      if (strcmp(currCountry,buf)==0) {
+      if (strcmp(currCountry,buf.c_str())==0) {
         row = gtk_list_box_get_row_at_index(countryListBox,options);
         gtk_list_box_select_row(countryListBox,row);
       }
     }
 
 
-
-    fclose(timezoneInput);
     updateTimezones(nullptr);
     updateAvailableNetworks(availableNetworksListBox);
     gtk_widget_show_all((GtkWidget*)settingsWindow);
@@ -1795,6 +1824,7 @@ int main(int argc, char **argv) {
 
     getScreenResolution();
     
+    thread(initializeTimezones).detach();
     thread(hideMouse).detach();
     thread(timeUpdate).detach();
     thread(renderCompass).detach();
