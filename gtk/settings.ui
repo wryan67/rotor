@@ -312,6 +312,7 @@ to wifi and the internet</property>
                           <object class="GtkEntry" id="SSID">
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
+                            <property name="is_focus">True</property>
                             <property name="valign">start</property>
                             <property name="margin_top">4</property>
                             <property name="width_chars">10</property>

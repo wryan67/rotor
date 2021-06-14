@@ -59,7 +59,6 @@ int  movingColor  = 0x00ff00;
 int  brakingColor = 0xffff00;
 
 
-
 // #pragma clang diagnostic push
 // #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #pragma GCC diagnostic push
@@ -1156,16 +1155,42 @@ int timezoneScroller(gpointer data) {
   return FALSE;
 }
 
-int updateSSIDSetFocus(gpointer data) {
-    gtk_widget_grab_focus((GtkWidget*)passwdEntry);
-    return false;
-  }
+int removeSSIDSelection(gpointer data) {
+//  gtk_list_box_unselect_all(availableNetworksListBox);
+  return false;
+}
 
-int updateSSID(gpointer data) {
-  
-    auto sel = gtk_list_box_get_selected_row(availableNetworksListBox);
+
+int updateSSIDSetFocus(gpointer data) {
+  removeSSIDSelection(availableNetworksListBox);
+  gtk_widget_grab_focus((GtkWidget*)passwdEntry);
+  return false;
+}
+
+bool ssidEvent=false;
+
+int ssidAction(gpointer data) {
+  char *action=(char*)data;
+  logger.debug("ssid-action: %s", action);
+  return false;
+}
+
+const char *ssidSignal="row-activated";
+
+int ssidRowSelected(gpointer data) {
+  logger.debug("ssid action: %s", ssidSignal);
+
+    // if (ssidEvent) {
+    //   ssidEvent=false;
+    // } else {
+    //   g_idle_add(removeSSIDSelection,nullptr);
+    //   return false;
+    // }
+
+    GtkListBoxRow *sel = gtk_list_box_get_selected_row(availableNetworksListBox);
+
     if (sel==nullptr) {
-      return FALSE;
+      return false;
     }
 
     auto row = gtk_list_box_row_get_index(sel);
@@ -1175,8 +1200,10 @@ int updateSSID(gpointer data) {
     auto currText = gtk_entry_get_text(ssidEntry);
 
     if (strcmp(currText,network)==0) {
+      g_idle_add(removeSSIDSelection,nullptr);
       return false;
     }
+
 
     gtk_entry_set_text(ssidEntry,network);
 
@@ -1186,6 +1213,8 @@ int updateSSID(gpointer data) {
 
     return false;
 }
+
+
 
 int updateTimezones(gpointer data) {
     int options;
@@ -1295,6 +1324,7 @@ void showWifiUpdatesDelay() {
   showingWifiUpdates=false;
 }
 
+
 int updateAvailableNetworks(GtkListBox *availableNetworksListBox) {
 
   gtk_container_foreach((GtkContainer *)availableNetworksListBox, gtk_widget_destroy_noarg, nullptr);
@@ -1307,7 +1337,23 @@ int updateAvailableNetworks(GtkListBox *availableNetworksListBox) {
   }
 
   gtk_widget_show_all((GtkWidget*)availableNetworksListBox);
-  availableNetworksListBoxSignal = g_signal_connect (availableNetworksListBox, "row-selected", G_CALLBACK (updateSSID),      NULL);
+
+  // vector<string> signals = {
+  //   "activate-cursor-row",
+  //   "row-activated",
+  //   "row-selected",
+  //   "selected-rows-changed",
+  //   "toggle-cursor-row"
+  // };
+
+  // for (auto s: signals) {
+  //   int siglen=strlen(s.c_str())+1;
+  //   char *signal = (char*)malloc(siglen);
+  //   memset(signal,0,siglen);
+  //   strcpy(signal,s.c_str());
+  //   logger.debug("setting signal for: %s",signal);
+    availableNetworksListBoxSignal = g_signal_connect (availableNetworksListBox, ssidSignal,     G_CALLBACK (ssidRowSelected),     (char*) ssidSignal);
+  // }
 
   return false;
 }
@@ -1674,8 +1720,8 @@ int showSettings(gpointer data) {
     g_signal_connect (button,            "clicked",      G_CALLBACK (cancelSettings),  NULL);
     g_signal_connect (settingsWindow,    "destroy",      G_CALLBACK (cancelSettings),  NULL);
     g_signal_connect (countryListBox,    "row-selected", G_CALLBACK (updateTimezones), NULL);
-    availableNetworksListBoxSignal = g_signal_connect (availableNetworksListBox, "row-selected", G_CALLBACK (updateSSID),      NULL);
 
+    availableNetworksListBoxSignal = g_signal_connect (availableNetworksListBox, ssidSignal,     G_CALLBACK (ssidRowSelected),     (char*) ssidSignal);
 
     return FALSE;
 }
@@ -1804,12 +1850,6 @@ int main(int argc, char **argv) {
     degreeInputBox = (GtkWidget *) gtk_builder_get_object (uiBuilder, "DegreeInputBox");
 
     initTime(uiBuilder);
-
-
-
-
-
-
 
     createDrawingSurface(drawingArea);
     g_signal_connect (drawingArea,"configure-event", G_CALLBACK (configure_event_cb), NULL);
