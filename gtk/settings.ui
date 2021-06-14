@@ -201,6 +201,8 @@ to wifi and the internet</property>
                   <object class="GtkBox">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="halign">center</property>
+                    <property name="hexpand">True</property>
                     <property name="orientation">vertical</property>
                     <child>
                       <object class="GtkLabel">
@@ -256,6 +258,10 @@ to wifi and the internet</property>
                   <object class="GtkBox">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
+                    <property name="halign">center</property>
+                    <property name="valign">center</property>
+                    <property name="hexpand">True</property>
+                    <property name="vexpand">True</property>
                     <property name="orientation">vertical</property>
                     <child>
                       <object class="GtkGrid">
@@ -404,7 +410,7 @@ to wifi and the internet</property>
                             <property name="margin_top">4</property>
                             <property name="margin_bottom">4</property>
                             <property name="label" translatable="yes">Realized IP(s)</property>
-                            <property name="xalign">0.10000000149011612</property>
+                            <property name="xalign">0.5</property>
                           </object>
                           <packing>
                             <property name="expand">False</property>
