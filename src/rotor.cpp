@@ -57,7 +57,7 @@ int  stopColor    = 0xff0000;
 int  movingColor  = 0x00ff00;
 int  brakingColor = 0xffff00;
 
-atomic<bool> stoppingRotor{false};
+
 
 // #pragma clang diagnostic push
 // #pragma clang diagnostic ignored "-Wdeprecated-declarations"
@@ -66,15 +66,16 @@ atomic<bool> stoppingRotor{false};
 
 Logger     logger("main");
 
+atomic<bool> stoppingRotor{false};
 atomic<bool> isSettingsDialogueActive{false};
 atomic<bool> calledHideSettings{false};
+atomic<bool> showingRealizedIp{false};
+atomic<bool> showingWifiUpdates{false};
+atomic<bool> detectingIntenet{false};
+bool hasInternet{false};
 
 vector<string> realizedIPs;
 vector<string> wifiNetworks;
-
-atomic<bool> showingRealizedIp{false};
-atomic<bool> showingWifiUpdates{false};
-
 
 
 GtkWidget *drawingArea=nullptr;
@@ -1425,14 +1426,36 @@ int showRealizedIp(gpointer data) {
     
     // gtk_label_set_markup((GtkLabel*)label, "<span face='Courier'>text</span>");
 
-    gtk_widget_modify_font(label, realizedIPFont);    
+    if (!strstr(s.c_str(),"internet")) {
+      gtk_widget_modify_font(label, realizedIPFont);    
+    }
+
     gtk_label_set_xalign ((GtkLabel*)label, 0);
+    gtk_widget_set_margin_left(label, 10);
     gtk_list_box_insert(realizedIp, label, -1);
   }
 
   gtk_widget_show_all((GtkWidget*)realizedIp);
+
+  usleep(1000*1000);
   showingRealizedIp=false;
   return false;
+}
+
+void detectInternet() {
+    bool expect=false;
+
+  vector<string> currRealizedIPs;
+
+  if (!detectingIntenet.compare_exchange_strong(expect,true)) {
+    return;
+  }
+  int rs=system("ping -c1 8.8.8.8");
+
+  hasInternet=(rs==0);
+
+  usleep(2000*1000);
+  detectingIntenet=false;
 }
 
 void showRealizedIpController() {  
@@ -1460,6 +1483,13 @@ void showRealizedIpController() {
   }
   fclose(inputFile);
 
+  const char *internetMessage;
+  if (hasInternet) {
+    internetMessage="internet detected";
+  } else {
+    internetMessage="no internet";
+  }
+  currRealizedIPs.push_back(internetMessage);
 
   bool changed = (realizedIPs.size() != currRealizedIPs.size());
 
@@ -1470,11 +1500,6 @@ void showRealizedIpController() {
         break;
       }
     }
-  }
-
-  if (!changed) {
-    showingRealizedIp=false;
-    return;
   }
 
   realizedIPs.clear();
@@ -1492,6 +1517,7 @@ void wifiUpdate() {
     if (isSettingsDialogueActive) {
       thread(showRealizedIpController).detach();
       thread(showWifiUpdatesController,settingsBuilder).detach();      
+      thread(detectInternet).detach();
     }
   }
 }

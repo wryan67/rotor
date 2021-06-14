@@ -59,180 +59,6 @@
           <object class="GtkGrid">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-            <child>
-              <object class="GtkAlignment">
-                <property name="width_request">-1</property>
-                <property name="height_request">-1</property>
-                <property name="visible">True</property>
-                <property name="can_focus">False</property>
-                <property name="hexpand">True</property>
-                <property name="vexpand">True</property>
-                <child>
-                  <object class="GtkDrawingArea" id="CompassDrawingArea">
-                    <property name="name">CompassWidget</property>
-                    <property name="width_request">130</property>
-                    <property name="height_request">130</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="hexpand">True</property>
-                    <property name="vexpand">True</property>
-                  </object>
-                </child>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="nwButton">
-                <property name="label" translatable="yes">NW</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="hexpand">True</property>
-                <property name="vexpand">True</property>
-                <style>
-                  <class name="Compass"/>
-                </style>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="neButton">
-                <property name="label" translatable="yes">NE</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="hexpand">True</property>
-                <property name="vexpand">True</property>
-                <style>
-                  <class name="Compass"/>
-                </style>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="seButton">
-                <property name="label" translatable="yes">SE</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="hexpand">False</property>
-                <property name="vexpand">False</property>
-                <style>
-                  <class name="Compass"/>
-                </style>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">2</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="swButton">
-                <property name="label" translatable="yes">SW</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="hexpand">True</property>
-                <property name="vexpand">True</property>
-                <style>
-                  <class name="Compass"/>
-                </style>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">2</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="northButton">
-                <property name="label" translatable="yes">North</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="hexpand">True</property>
-                <property name="vexpand">True</property>
-                <style>
-                  <class name="Compass"/>
-                </style>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">0</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="eastButton">
-                <property name="label" translatable="yes">East</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="hexpand">True</property>
-                <property name="vexpand">True</property>
-                <style>
-                  <class name="Compass"/>
-                </style>
-              </object>
-              <packing>
-                <property name="left_attach">2</property>
-                <property name="top_attach">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="westButton">
-                <property name="label" translatable="yes">West</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="hexpand">True</property>
-                <property name="vexpand">True</property>
-                <style>
-                  <class name="Compass"/>
-                </style>
-              </object>
-              <packing>
-                <property name="left_attach">0</property>
-                <property name="top_attach">1</property>
-              </packing>
-            </child>
-            <child>
-              <object class="GtkButton" id="southButton">
-                <property name="label" translatable="yes">South</property>
-                <property name="visible">True</property>
-                <property name="can_focus">True</property>
-                <property name="receives_default">True</property>
-                <property name="hexpand">True</property>
-                <property name="vexpand">True</property>
-                <style>
-                  <class name="Compass"/>
-                </style>
-              </object>
-              <packing>
-                <property name="left_attach">1</property>
-                <property name="top_attach">2</property>
-              </packing>
-            </child>
-            <style>
-              <class name="aqua"/>
-            </style>
-          </object>
-          <packing>
-            <property name="left_attach">1</property>
-            <property name="top_attach">0</property>
-          </packing>
-        </child>
-        <child>
-          <object class="GtkGrid">
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
             <property name="margin_left">5</property>
             <property name="margin_right">5</property>
             <property name="margin_top">5</property>
@@ -253,7 +79,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">UTC</property>
                         <attributes>
-                          <attribute name="font-desc" value="Quicksand Light, Bold 18"/>
+                          <attribute name="font-desc" value="Quicksand Light, Bold 16"/>
                         </attributes>
                         <style>
                           <class name="TimeWindowCSS"/>
@@ -271,7 +97,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">utc-time</property>
                         <attributes>
-                          <attribute name="font-desc" value="DejaVu Sans Mono 24"/>
+                          <attribute name="font-desc" value="DejaVu Sans Mono 20"/>
                         </attributes>
                         <style>
                           <class name="TimeWindowCSS"/>
@@ -289,7 +115,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">utc-date</property>
                         <attributes>
-                          <attribute name="font-desc" value="Quicksand Light, Bold 18"/>
+                          <attribute name="font-desc" value="Quicksand Light, Bold 16"/>
                         </attributes>
                         <style>
                           <class name="TimeWindowCSS"/>
@@ -320,7 +146,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Local</property>
                         <attributes>
-                          <attribute name="font-desc" value="Quicksand Light, Bold 18"/>
+                          <attribute name="font-desc" value="Quicksand Light, Bold 14"/>
                         </attributes>
                         <style>
                           <class name="TimeWindowCSS"/>
@@ -337,7 +163,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">local-time</property>
                         <attributes>
-                          <attribute name="font-desc" value="DejaVu Sans Mono 24"/>
+                          <attribute name="font-desc" value="DejaVu Sans Mono 20"/>
                         </attributes>
                         <style>
                           <class name="TimeWindowCSS"/>
@@ -354,7 +180,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">local-date</property>
                         <attributes>
-                          <attribute name="font-desc" value="Quicksand Light, Bold 18"/>
+                          <attribute name="font-desc" value="Quicksand Light, Bold 16"/>
                         </attributes>
                         <style>
                           <class name="TimeWindowCSS"/>
@@ -486,6 +312,196 @@
           </object>
           <packing>
             <property name="left_attach">0</property>
+            <property name="top_attach">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkBox">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="margin_left">1</property>
+            <property name="margin_right">1</property>
+            <property name="margin_top">1</property>
+            <property name="margin_bottom">1</property>
+            <property name="orientation">vertical</property>
+            <child>
+              <object class="GtkGrid">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <child>
+                  <object class="GtkAlignment">
+                    <property name="width_request">-1</property>
+                    <property name="height_request">-1</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="hexpand">True</property>
+                    <property name="vexpand">True</property>
+                    <child>
+                      <object class="GtkDrawingArea" id="CompassDrawingArea">
+                        <property name="name">CompassWidget</property>
+                        <property name="width_request">130</property>
+                        <property name="height_request">130</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="hexpand">True</property>
+                        <property name="vexpand">True</property>
+                      </object>
+                    </child>
+                  </object>
+                  <packing>
+                    <property name="left_attach">1</property>
+                    <property name="top_attach">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkButton" id="nwButton">
+                    <property name="label" translatable="yes">NW</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <property name="hexpand">True</property>
+                    <property name="vexpand">True</property>
+                    <style>
+                      <class name="Compass"/>
+                    </style>
+                  </object>
+                  <packing>
+                    <property name="left_attach">0</property>
+                    <property name="top_attach">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkButton" id="neButton">
+                    <property name="label" translatable="yes">NE</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <property name="hexpand">True</property>
+                    <property name="vexpand">True</property>
+                    <style>
+                      <class name="Compass"/>
+                    </style>
+                  </object>
+                  <packing>
+                    <property name="left_attach">2</property>
+                    <property name="top_attach">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkButton" id="seButton">
+                    <property name="label" translatable="yes">SE</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <property name="hexpand">True</property>
+                    <property name="vexpand">True</property>
+                    <style>
+                      <class name="Compass"/>
+                    </style>
+                  </object>
+                  <packing>
+                    <property name="left_attach">2</property>
+                    <property name="top_attach">2</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkButton" id="swButton">
+                    <property name="label" translatable="yes">SW</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <property name="hexpand">True</property>
+                    <property name="vexpand">True</property>
+                    <style>
+                      <class name="Compass"/>
+                    </style>
+                  </object>
+                  <packing>
+                    <property name="left_attach">0</property>
+                    <property name="top_attach">2</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkButton" id="northButton">
+                    <property name="label" translatable="yes">North</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <property name="hexpand">True</property>
+                    <property name="vexpand">True</property>
+                    <style>
+                      <class name="Compass"/>
+                    </style>
+                  </object>
+                  <packing>
+                    <property name="left_attach">1</property>
+                    <property name="top_attach">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkButton" id="eastButton">
+                    <property name="label" translatable="yes">East</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <property name="hexpand">True</property>
+                    <property name="vexpand">True</property>
+                    <style>
+                      <class name="Compass"/>
+                    </style>
+                  </object>
+                  <packing>
+                    <property name="left_attach">2</property>
+                    <property name="top_attach">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkButton" id="westButton">
+                    <property name="label" translatable="yes">West</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <property name="hexpand">True</property>
+                    <property name="vexpand">True</property>
+                    <style>
+                      <class name="Compass"/>
+                    </style>
+                  </object>
+                  <packing>
+                    <property name="left_attach">0</property>
+                    <property name="top_attach">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkButton" id="southButton">
+                    <property name="label" translatable="yes">South</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <property name="hexpand">True</property>
+                    <property name="vexpand">True</property>
+                    <style>
+                      <class name="Compass"/>
+                    </style>
+                  </object>
+                  <packing>
+                    <property name="left_attach">1</property>
+                    <property name="top_attach">2</property>
+                  </packing>
+                </child>
+                <style>
+                  <class name="aqua"/>
+                </style>
+              </object>
+              <packing>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+          </object>
+          <packing>
+            <property name="left_attach">1</property>
             <property name="top_attach">0</property>
           </packing>
         </child>
