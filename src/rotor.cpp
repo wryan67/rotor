@@ -1180,38 +1180,31 @@ const char *ssidSignal="row-activated";
 int ssidRowSelected(gpointer data) {
   logger.debug("ssid action: %s", ssidSignal);
 
-    // if (ssidEvent) {
-    //   ssidEvent=false;
-    // } else {
-    //   g_idle_add(removeSSIDSelection,nullptr);
-    //   return false;
-    // }
+  GtkListBoxRow *sel = gtk_list_box_get_selected_row(availableNetworksListBox);
 
-    GtkListBoxRow *sel = gtk_list_box_get_selected_row(availableNetworksListBox);
-
-    if (sel==nullptr) {
-      return false;
-    }
-
-    auto row = gtk_list_box_row_get_index(sel);
-
-    auto network = wifiNetworks[row].c_str();
-
-    auto currText = gtk_entry_get_text(ssidEntry);
-
-    if (strcmp(currText,network)==0) {
-      g_idle_add(removeSSIDSelection,nullptr);
-      return false;
-    }
-
-
-    gtk_entry_set_text(ssidEntry,network);
-
-    g_idle_add(updateSSIDSetFocus,nullptr);
-
-    //@@
-
+  if (sel==nullptr) {
     return false;
+  }
+
+  auto row = gtk_list_box_row_get_index(sel);
+
+  auto network = wifiNetworks[row].c_str();
+
+  auto currText = gtk_entry_get_text(ssidEntry);
+
+  if (strcmp(currText,network)==0) {
+    g_idle_add(removeSSIDSelection,nullptr);
+    return false;
+  }
+
+
+  gtk_entry_set_text(ssidEntry,network);
+
+  g_idle_add(updateSSIDSetFocus,nullptr);
+
+  //@@
+
+  return false;
 }
 
 
@@ -1327,33 +1320,33 @@ void showWifiUpdatesDelay() {
 
 int updateAvailableNetworks(GtkListBox *availableNetworksListBox) {
 
+  gtk_list_box_unselect_all(availableNetworksListBox);
   gtk_container_foreach((GtkContainer *)availableNetworksListBox, gtk_widget_destroy_noarg, nullptr);
 
+  ssidEntry   = (GtkEntry*) gtk_builder_get_object (settingsBuilder, "SSID");
+
+  const char *userText = gtk_entry_get_text(ssidEntry);
+
+  GtkListBoxRow *selectedRow=nullptr;
+  int options=-1;
   for (auto s: wifiNetworks) {
+    ++options;
     auto label = gtk_label_new(s.c_str());
 
     gtk_label_set_xalign ((GtkLabel*)label, 0);
-    gtk_list_box_insert(availableNetworksListBox, label, -1);
+    gtk_list_box_insert(availableNetworksListBox, label, options);
+
+    if (strcmp(s.c_str(), userText)==0) {
+      selectedRow=gtk_list_box_get_row_at_index(availableNetworksListBox, options);
+    }
   }
 
+  if (selectedRow!=nullptr) {
+    gtk_list_box_select_row(availableNetworksListBox, selectedRow);
+  }
   gtk_widget_show_all((GtkWidget*)availableNetworksListBox);
 
-  // vector<string> signals = {
-  //   "activate-cursor-row",
-  //   "row-activated",
-  //   "row-selected",
-  //   "selected-rows-changed",
-  //   "toggle-cursor-row"
-  // };
-
-  // for (auto s: signals) {
-  //   int siglen=strlen(s.c_str())+1;
-  //   char *signal = (char*)malloc(siglen);
-  //   memset(signal,0,siglen);
-  //   strcpy(signal,s.c_str());
-  //   logger.debug("setting signal for: %s",signal);
-    availableNetworksListBoxSignal = g_signal_connect (availableNetworksListBox, ssidSignal,     G_CALLBACK (ssidRowSelected),     (char*) ssidSignal);
-  // }
+  availableNetworksListBoxSignal = g_signal_connect (availableNetworksListBox, ssidSignal,     G_CALLBACK (ssidRowSelected),     (char*) ssidSignal);
 
   return false;
 }
