@@ -1178,8 +1178,6 @@ int ssidAction(gpointer data) {
 const char *ssidSignal="row-activated";
 
 int ssidRowSelected(gpointer data) {
-  logger.debug("ssid action: %s", ssidSignal);
-
   GtkListBoxRow *sel = gtk_list_box_get_selected_row(availableNetworksListBox);
 
   if (sel==nullptr) {
@@ -1208,7 +1206,13 @@ int ssidRowSelected(gpointer data) {
 }
 
 
+int setWifiTabFocus(gpointer data) {
+  logger.info("wifi tab clicked");
+  gtk_entry_grab_focus_without_selecting(ssidEntry);
+//@@
+return false;
 
+}
 int updateTimezones(gpointer data) {
     int options;
     const char *currCountry=nullptr;
@@ -1323,7 +1327,6 @@ int updateAvailableNetworks(GtkListBox *availableNetworksListBox) {
   gtk_list_box_unselect_all(availableNetworksListBox);
   gtk_container_foreach((GtkContainer *)availableNetworksListBox, gtk_widget_destroy_noarg, nullptr);
 
-  ssidEntry   = (GtkEntry*) gtk_builder_get_object (settingsBuilder, "SSID");
 
   const char *userText = gtk_entry_get_text(ssidEntry);
 
@@ -1344,6 +1347,7 @@ int updateAvailableNetworks(GtkListBox *availableNetworksListBox) {
   if (selectedRow!=nullptr) {
     gtk_list_box_select_row(availableNetworksListBox, selectedRow);
   }
+
   gtk_widget_show_all((GtkWidget*)availableNetworksListBox);
 
   availableNetworksListBoxSignal = g_signal_connect (availableNetworksListBox, ssidSignal,     G_CALLBACK (ssidRowSelected),     (char*) ssidSignal);
@@ -1647,6 +1651,7 @@ int showSettings(gpointer data) {
         return 1;
     }
 
+    auto wifiTab    = (GtkWidget*)  gtk_builder_get_object (settingsBuilder, "WifiTab");
     settingsWindow  = (GtkWindow*)  gtk_builder_get_object (settingsBuilder, "SettingsWindow");
     countryListBox  = (GtkListBox*) gtk_builder_get_object (settingsBuilder, "CountryListBox");
     timezoneListBox = (GtkListBox*) gtk_builder_get_object (settingsBuilder, "TimezoneListBox");
@@ -1710,9 +1715,11 @@ int showSettings(gpointer data) {
     g_signal_connect (button, "clicked", G_CALLBACK (saveSettings), NULL);
 
     button = gtk_builder_get_object (settingsBuilder, "CancelSettingsButton");
-    g_signal_connect (button,            "clicked",      G_CALLBACK (cancelSettings),  NULL);
-    g_signal_connect (settingsWindow,    "destroy",      G_CALLBACK (cancelSettings),  NULL);
-    g_signal_connect (countryListBox,    "row-selected", G_CALLBACK (updateTimezones), NULL);
+    g_signal_connect (button,            "clicked",       G_CALLBACK (cancelSettings),  NULL);
+    g_signal_connect (settingsWindow,    "destroy",       G_CALLBACK (cancelSettings),  NULL);
+    g_signal_connect (countryListBox,    "row-selected",  G_CALLBACK (updateTimezones), NULL);
+    g_signal_connect (wifiTab,           "focus", G_CALLBACK (setWifiTabFocus), NULL);
+    
 
     availableNetworksListBoxSignal = g_signal_connect (availableNetworksListBox, ssidSignal,     G_CALLBACK (ssidRowSelected),     (char*) ssidSignal);
 

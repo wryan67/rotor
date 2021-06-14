@@ -15,7 +15,7 @@
         <property name="visible">True</property>
         <property name="can_focus">False</property>
         <child>
-          <object class="GtkNotebook">
+          <object class="GtkNotebook" id="SettingsNotebook">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
             <child>
@@ -235,7 +235,7 @@ to wifi and the internet</property>
                             <child>
                               <object class="GtkListBox" id="AvailableNetworks">
                                 <property name="visible">True</property>
-                                <property name="can_focus">False</property>
+                                <property name="can_focus">True</property>
                                 <property name="vexpand">True</property>
                               </object>
                             </child>
@@ -318,7 +318,6 @@ to wifi and the internet</property>
                           <object class="GtkEntry" id="SSID">
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
-                            <property name="is_focus">True</property>
                             <property name="valign">start</property>
                             <property name="margin_top">4</property>
                             <property name="width_chars">10</property>
@@ -463,7 +462,7 @@ to wifi and the internet</property>
               </packing>
             </child>
             <child type="tab">
-              <object class="GtkLabel">
+              <object class="GtkLabel" id="WifiTab">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <property name="label" translatable="yes">WiFi</property>
