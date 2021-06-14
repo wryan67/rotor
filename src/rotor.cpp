@@ -1402,6 +1402,11 @@ void showWifiUpdatesController(GtkBuilder *settingsBuilder) {
 
 PangoFontDescription *realizedIPFont=nullptr;
 
+void showRealizedIPDelay() {
+  usleep(1000*1000);
+  showingRealizedIp=false;
+}
+
 int showRealizedIp(gpointer data) {
   if (!settingsBuilder) {
     return false;
@@ -1437,8 +1442,7 @@ int showRealizedIp(gpointer data) {
 
   gtk_widget_show_all((GtkWidget*)realizedIp);
 
-  usleep(1000*1000);
-  showingRealizedIp=false;
+  thread(showRealizedIPDelay).detach();
   return false;
 }
 
