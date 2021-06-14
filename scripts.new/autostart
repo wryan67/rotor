@@ -1,3 +1,0 @@
-# auto start
-xhost +
-/home/pi/bin/start.sh boot
