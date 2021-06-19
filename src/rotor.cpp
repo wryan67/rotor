@@ -1188,6 +1188,10 @@ int ssidRowSelected(gpointer data) {
 
   auto network = wifiNetworks[row].c_str();
 
+  char *freq=strstr((char*)network,"  ");
+
+  if (freq) freq[0]=0;
+
   auto currText = gtk_entry_get_text(ssidEntry);
 
   if (strcmp(currText,network)==0) {
@@ -1408,14 +1412,19 @@ void showWifiUpdatesController(GtkBuilder *settingsBuilder) {
     int len=strlen(tmpstr);
     if (tmpstr[len-1]==10) tmpstr[len-1]=0;
     int strength;
-    char *comma=strstr(tmpstr,",");
-    char *network=comma+1;
+    char *comma=strstr(tmpstr,"þ");
+    char *network=comma+2;
     if (!comma) {
       continue;
     }
 
-    sscanf(tmpstr,"%d,", &strength);
+    sscanf(tmpstr,"%dþ", &strength);
 
+    char *freq=strstr(network,"þ");
+    if (freq) {
+        freq[0]=' ';
+        freq[1]=' ';
+    }
     currentNetworks.push_back(network);
   }
   fclose(inputFile);
