@@ -379,7 +379,9 @@ void a2dSetup() {
 
     float v3 = readVoltageSingleShot(a2dHandle, options.v3channel, 0);
 
-    if (abs((3.3-v3)/((3.3+v3)/2))>0.10) {
+    char *bootOverride = getenv("BOOTOVERRIDE");
+
+    if (abs((3.3-v3)/((3.3+v3)/2))>0.10 && !bootOverride) {
         for (int c=0;c<4;++c) {
             float volts = readVoltageSingleShot(a2dHandle, c, 0);
             logger.info("channel<%d>=%f", c, volts);
@@ -439,6 +441,9 @@ void a2dSetup() {
     logger.info("pct=%.0f", pct);
     logger.info("calculated window size = %d ", windowSize);
     logger.error("unable to reach target window size of %d.", expectedSampleWindow);
+    if (bootOverride) {
+      return;
+    }
     if (pct<0) {
       bootError("Is your i2c bus overclocked?");
     } else {
