@@ -26,6 +26,8 @@ using namespace common::synchronized;
 Options options = Options();
 bool debug=false;
 
+char configFolder[2048];
+
 #define BASE 200
 #define SPI_CHAN 0
 #define MCP3008_SINGLE  8
@@ -326,43 +328,67 @@ void cableMonitor() {
   }
 }
 
+struct MessageWindowData {
+  const char     *title;
+  const char     *message;
+  bool            terminate;
+  GtkApplication *app;
+};
 
 
-void bootErrorWindow(GtkApplication *app, gpointer data) {
-
+void gtkWindow(GtkApplication *app, gpointer data) {
   gtk_application_window_new(app);
+
+  MessageWindowData *msg = (MessageWindowData*) data;
  
   GtkWidget *dialog = gtk_message_dialog_new ((GtkWindow*)mainWindow,
       GTK_DIALOG_DESTROY_WITH_PARENT,
       GTK_MESSAGE_ERROR,
       GTK_BUTTONS_CLOSE,
-      (char*) data                            
+      msg->message
   );
   getScreenResolution();
   thread(hideMouse).detach();
 
-  gtk_window_set_title((GtkWindow*)dialog,"boot error");
+  gtk_window_set_title((GtkWindow*)dialog, msg->title);
   gtk_dialog_run((GtkDialog*)dialog);
   gtk_widget_destroy (dialog);
-  exit(4);
+  g_application_quit(G_APPLICATION(app));
+
 }
 
-void bootError(const char *message) {
-  int   argc=1;
-  char *argv[1];
-  argv[0] = (char*)malloc(32);
-  strcpy(argv[0],"rotor");
-
-
-  char *msg=(char*)malloc(strlen(message)+1);
-  sprintf(msg,"\n%s",message);
-  logger.error(message);
-
+void messageWindow(MessageWindowData *msg) {
   GtkApplication *app = gtk_application_new ("org.rotor", G_APPLICATION_FLAGS_NONE);
+  msg->app=app;
 
-  g_signal_connect    (app, "activate", G_CALLBACK (bootErrorWindow), msg);
-  g_application_run   (G_APPLICATION (app), argc, argv);
+  g_signal_connect    (app, "activate", G_CALLBACK (gtkWindow), msg);
+  g_application_run   (G_APPLICATION (app), 0, nullptr);
   g_object_unref      (app);
+
+}
+
+void softError(const char* title, const char *message) {
+  MessageWindowData *data = new MessageWindowData;
+
+  data->message=(char*)message;
+  data->title=(char*)title;
+  data->terminate=false;
+
+  messageWindow(data);
+  delete data;
+}
+
+
+void bootError(const char *message) {
+  MessageWindowData *error = new MessageWindowData;
+
+  error->message=message;
+  error->title="boot failed";
+  error->terminate=true;
+
+  messageWindow(error);
+  delete error;
+
   exit(4);
 }
 
@@ -1210,12 +1236,9 @@ int ssidRowSelected(gpointer data) {
     return false;
   }
 
-
   gtk_entry_set_text(ssidEntry,network);
 
   g_idle_add(updateSSIDSetFocus,nullptr);
-
-  //@@
 
   return false;
 }
@@ -1224,10 +1247,9 @@ int ssidRowSelected(gpointer data) {
 int setWifiTabFocus(gpointer data) {
   logger.info("wifi tab clicked");
   gtk_entry_grab_focus_without_selecting(ssidEntry);
-//@@
-return false;
-
+  return false;
 }
+
 int updateTimezones(gpointer data) {
     int options;
     const char *currCountry=nullptr;
@@ -1295,27 +1317,51 @@ void updateWifi() {
 }
 
 void saveSettings() {
-    auto sel = gtk_list_box_get_selected_row(timezoneListBox);
+//@@
     
+    auto eastEntry   = (GtkEntry*) gtk_builder_get_object(settingsBuilder, "CalibrationEast");
+    auto westEntry   = (GtkEntry*) gtk_builder_get_object(settingsBuilder, "CalibrationWest");
+
+    auto eastText   = gtk_entry_get_text(eastEntry);
+    auto westText   = gtk_entry_get_text(westEntry);
+
+    int east=0;
+    int west=0;
+
+    sscanf(eastText,"%d", &east);
+    sscanf(westText,"%d", &west);
+
+    if (east>45 && east<135 && west>225 && west<315) {
+      char calibrationFilename[4096];
+      sprintf(calibrationFilename,"%s/calibration", configFolder);
+      FILE* calibration = fopen(calibrationFilename,"w");
+      fprintf(calibration,"%d,%d\n", east, west);
+      fclose(calibration);
+    } else {
+      logger.error("eastText=[%s]",eastText);
+      logger.error("westText=[%s]",westText);
+      
+      logger.error("calibration settings out of range: e=%d w=%d", east, west);
+      softError("calibration","Calibration out of range error.\nEast must be between 46-134\nWest must be between 226-314");      
+      return;
+    }
+
+    auto sel = gtk_list_box_get_selected_row(timezoneListBox);
+   
     if (sel!=nullptr) {
       auto row = gtk_list_box_row_get_index(sel);
-
       char cmd[4096];
-
       sprintf(cmd,"sudo timedatectl set-timezone '%s'", timezones[row].c_str());
-
       system(cmd);
-
       logger.info("new timezone: %s",timezones[row].c_str());
-
     }
-    
+
     auto ssid   = gtk_entry_get_text(ssidEntry);
     auto passwd = gtk_entry_get_text(passwdEntry);
 
     if (strlen(ssid)>0) {
-      char tmpstr[1024];
-      sprintf(tmpstr,"%s/.ssid",getenv("HOME"));
+      char tmpstr[4096];
+      sprintf(tmpstr,"%s/.ssid",configFolder);
       FILE *ssidFile = fopen(tmpstr,"w");
 
       if (ssidFile) {
@@ -1614,8 +1660,8 @@ void readSSID() {
   g_signal_connect (showPasswd, "toggled", G_CALLBACK (showPassword), NULL);
 
 
-  char tmpstr[1024];
-  sprintf(tmpstr,"%s/.ssid",getenv("HOME"));
+  char tmpstr[4096];
+  sprintf(tmpstr,"%s/.ssid",configFolder);
   FILE *ssidFile = fopen(tmpstr,"r");
 
   if (!ssidFile) {
@@ -1779,122 +1825,143 @@ static gboolean compassClick(GtkWidget *widget, GdkEventButton *event, gpointer 
     return TRUE;
 }
 
+
+void makeConfigFolder() {
+
+  sprintf(configFolder,"%s/.config/rotor", getenv("HOME"));
+
+  DIR* dir = opendir(configFolder);
+  if (dir) {
+    closedir(dir);
+  } else {
+    char cmd[4096];
+    sprintf(cmd,"mkdir -p %s",configFolder);
+    system(cmd);
+  }
+  FILE* theme = fopen ("theme.css", "r");
+  if (theme==nullptr) {
+    char bin[2048];
+    sprintf(bin,"%s/bin",getenv("HOME"));
+    chdir(bin);
+  } else {
+    fclose(theme);
+  }
+}
+
 int main(int argc, char **argv) {
-    GtkBuilder *uiBuilder;
-    GObject    *button;
-    GError     *error=nullptr;
+  GtkBuilder *uiBuilder;
+  GObject    *button;
+  GError     *error=nullptr;
 
-    int rs=setuid(0);
-    if (rs<0) {
-        bootError("sorry, this app must run as root; check setuid bit");
-    }
+  int rs=setuid(0);
+  if (rs<0) {
+      bootError("sorry, this app must run as root; check setuid bit");
+  }
 
-    FILE* theme = fopen ("theme.css", "r");
-    if (theme==nullptr) {
-        chdir("/home/pi/bin");
-    }
-
-    if (!options.commandLineOptions(argc, argv)) {
-      exit(1);
-    }
-    debug=(logger.getGlobalLevel()<=DEBUG);
-
-    displayParameters();
-
-    if (wiringPiSetup() != 0) {
-      bootError("wiringPi setup failed");
-    }
-    
-    pinMode(options.LimitSwitch, INPUT);
-    // doesn't work on RPi 4
-    //pullUpDnControl(options.LimitSwitch, PUD_UP);
-
-  	a2dSetup();
-
-    if (initRotorMotor()!=0) {
-        bootError("rotor motor initializaion failed");
-    }
-
-    gtk_init(&argc, &argv);
-
-    GtkCssProvider *cssProvider = gtk_css_provider_new();
-    gtk_css_provider_load_from_path(cssProvider, "theme.css", NULL);
-
-    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
-                                GTK_STYLE_PROVIDER(cssProvider),
-                                GTK_STYLE_PROVIDER_PRIORITY_USER);
-
-    /* Construct a GtkBuilder instance and load our UI description */
-    uiBuilder = gtk_builder_new ();
-    if (gtk_builder_add_from_file (uiBuilder, "layout.ui", &error) == 0) {
-        g_printerr ("Error loading file: %s\n", error->message);
-        g_clear_error (&error);
-        return 1;
-    }
-
-    /* Connect signal handlers to the constructed widgets. */
-    mainWindow = gtk_builder_get_object (uiBuilder, "window");
-    g_signal_connect (mainWindow, "destroy", G_CALLBACK (programStop), NULL);
-
-    button = gtk_builder_get_object (uiBuilder, "MoveExactButton");
-    g_signal_connect (button, "clicked", G_CALLBACK (moveExact), NULL);
-
-    button = gtk_builder_get_object (uiBuilder, "FastReverse");
-    g_signal_connect (button, "clicked", G_CALLBACK (moveTenCounterClockwise), NULL);
-
-    button = gtk_builder_get_object (uiBuilder, "FastForward");
-    g_signal_connect (button, "clicked", G_CALLBACK (moveTenClockwise), NULL);
+  makeConfigFolder();
 
 
-    button = gtk_builder_get_object (uiBuilder, "abort");
-    g_signal_connect (button, "clicked", G_CALLBACK (abortMovement), NULL);
+  if (!options.commandLineOptions(argc, argv)) {
+    exit(1);
+  }
+  debug=(logger.getGlobalLevel()<=DEBUG);
 
-    drawingArea = (GtkWidget *) gtk_builder_get_object (uiBuilder, "CompassDrawingArea");
-    g_signal_connect (mainWindow, "button-press-event", G_CALLBACK (compassClick), NULL);
+  displayParameters();
 
-
-
-    setButton(uiBuilder, "northButton", "clicked", G_CALLBACK(moveTo), &directional.north);
-    setButton(uiBuilder, "southButton", "clicked", G_CALLBACK(moveTo), &directional.south);
-    setButton(uiBuilder, "eastButton", "clicked", G_CALLBACK(moveTo),  &directional.east);
-    setButton(uiBuilder, "westButton", "clicked", G_CALLBACK(moveTo),  &directional.west);
-
-    setButton(uiBuilder, "seButton", "clicked", G_CALLBACK(moveTo), &directional.se);
-    setButton(uiBuilder, "swButton", "clicked", G_CALLBACK(moveTo), &directional.sw);
-    setButton(uiBuilder, "nwButton", "clicked", G_CALLBACK(moveTo), &directional.nw);
-    setButton(uiBuilder, "neButton", "clicked", G_CALLBACK(moveTo), &directional.ne);
-
+  if (wiringPiSetup() != 0) {
+    bootError("wiringPi setup failed");
+  }
   
+  pinMode(options.LimitSwitch, INPUT);
+  // doesn't work on RPi 4
+  //pullUpDnControl(options.LimitSwitch, PUD_UP);
+
+  a2dSetup();
+
+  if (initRotorMotor()!=0) {
+      bootError("rotor motor initializaion failed");
+  }
+
+  gtk_init(&argc, &argv);
+
+  GtkCssProvider *cssProvider = gtk_css_provider_new();
+  gtk_css_provider_load_from_path(cssProvider, "theme.css", NULL);
+
+  gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
+                              GTK_STYLE_PROVIDER(cssProvider),
+                              GTK_STYLE_PROVIDER_PRIORITY_USER);
+
+  /* Construct a GtkBuilder instance and load our UI description */
+  uiBuilder = gtk_builder_new ();
+  if (gtk_builder_add_from_file (uiBuilder, "layout.ui", &error) == 0) {
+      g_printerr ("Error loading file: %s\n", error->message);
+      g_clear_error (&error);
+      return 1;
+  }
+
+  /* Connect signal handlers to the constructed widgets. */
+  mainWindow = gtk_builder_get_object (uiBuilder, "window");
+  g_signal_connect (mainWindow, "destroy", G_CALLBACK (programStop), NULL);
+
+  button = gtk_builder_get_object (uiBuilder, "MoveExactButton");
+  g_signal_connect (button, "clicked", G_CALLBACK (moveExact), NULL);
+
+  button = gtk_builder_get_object (uiBuilder, "FastReverse");
+  g_signal_connect (button, "clicked", G_CALLBACK (moveTenCounterClockwise), NULL);
+
+  button = gtk_builder_get_object (uiBuilder, "FastForward");
+  g_signal_connect (button, "clicked", G_CALLBACK (moveTenClockwise), NULL);
 
 
-    degreeInputBox = (GtkWidget *) gtk_builder_get_object (uiBuilder, "DegreeInputBox");
+  button = gtk_builder_get_object (uiBuilder, "abort");
+  g_signal_connect (button, "clicked", G_CALLBACK (abortMovement), NULL);
 
-    initTime(uiBuilder);
-
-    createDrawingSurface(drawingArea);
-    g_signal_connect (drawingArea,"configure-event", G_CALLBACK (configure_event_cb), NULL);
-    g_signal_connect (drawingArea, "draw", G_CALLBACK (draw_cb), NULL);
-    g_signal_connect (G_OBJECT(mainWindow), "window-state-event", G_CALLBACK(manualScreenRedraw), NULL);
+  drawingArea = (GtkWidget *) gtk_builder_get_object (uiBuilder, "CompassDrawingArea");
+  g_signal_connect (mainWindow, "button-press-event", G_CALLBACK (compassClick), NULL);
 
 
-    if (options.fullscreen) {
-        logger.info("entering full screen mode");
-        gtk_window_fullscreen(GTK_WINDOW(mainWindow));
-    }
 
-    getScreenResolution();
-    
-    thread(initializeTimezones).detach();
-    thread(hideMouse).detach();
-    thread(timeUpdate).detach();
-    thread(renderCompass).detach();
-    thread(initRotorDegrees).detach();
-    thread(wifiUpdate).detach();
-    neopixel_setup();
+  setButton(uiBuilder, "northButton", "clicked", G_CALLBACK(moveTo), &directional.north);
+  setButton(uiBuilder, "southButton", "clicked", G_CALLBACK(moveTo), &directional.south);
+  setButton(uiBuilder, "eastButton", "clicked", G_CALLBACK(moveTo),  &directional.east);
+  setButton(uiBuilder, "westButton", "clicked", G_CALLBACK(moveTo),  &directional.west);
 
-    gtk_main();
+  setButton(uiBuilder, "seButton", "clicked", G_CALLBACK(moveTo), &directional.se);
+  setButton(uiBuilder, "swButton", "clicked", G_CALLBACK(moveTo), &directional.sw);
+  setButton(uiBuilder, "nwButton", "clicked", G_CALLBACK(moveTo), &directional.nw);
+  setButton(uiBuilder, "neButton", "clicked", G_CALLBACK(moveTo), &directional.ne);
 
-    return 0;
+
+
+
+  degreeInputBox = (GtkWidget *) gtk_builder_get_object (uiBuilder, "DegreeInputBox");
+
+  initTime(uiBuilder);
+
+  createDrawingSurface(drawingArea);
+  g_signal_connect (drawingArea,"configure-event", G_CALLBACK (configure_event_cb), NULL);
+  g_signal_connect (drawingArea, "draw", G_CALLBACK (draw_cb), NULL);
+  g_signal_connect (G_OBJECT(mainWindow), "window-state-event", G_CALLBACK(manualScreenRedraw), NULL);
+
+
+  if (options.fullscreen) {
+      logger.info("entering full screen mode");
+      gtk_window_fullscreen(GTK_WINDOW(mainWindow));
+  }
+
+  getScreenResolution();
+  
+  thread(initializeTimezones).detach();
+  thread(hideMouse).detach();
+  thread(timeUpdate).detach();
+  thread(renderCompass).detach();
+  thread(initRotorDegrees).detach();
+  thread(wifiUpdate).detach();
+  neopixel_setup();
+
+  gtk_main();
+
+  return 0;
 }
 // #pragma clang diagnostic pop
 #pragma GCC diagnostic pop

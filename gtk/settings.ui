@@ -531,6 +531,7 @@ to wifi and the internet</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="placeholder_text" translatable="yes">270</property>
+                        <property name="input_purpose">digits</property>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
@@ -554,6 +555,7 @@ to wifi and the internet</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
                         <property name="placeholder_text" translatable="yes">90</property>
+                        <property name="input_purpose">digits</property>
                       </object>
                       <packing>
                         <property name="left_attach">1</property>
