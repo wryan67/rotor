@@ -376,12 +376,17 @@ void a2dSetup() {
         fprintf(stderr, "opening ads1115 failed: %s\n", strerror(errno));
         exit(3);
     }
+    char *bootOverride = getenv("BOOTOVERRIDE");
+    if (bootOverride) {
+      return;
+    }
+
+
 
     float v3 = readVoltageSingleShot(a2dHandle, options.v3channel, 0);
 
-    char *bootOverride = getenv("BOOTOVERRIDE");
 
-    if (abs((3.3-v3)/((3.3+v3)/2))>0.10 && !bootOverride) {
+    if (abs((3.3-v3)/((3.3+v3)/2))>0.10) {
         for (int c=0;c<4;++c) {
             float volts = readVoltageSingleShot(a2dHandle, c, 0);
             logger.info("channel<%d>=%f", c, volts);
@@ -413,6 +418,7 @@ void a2dSetup() {
     float pct;
     int   expectedSampleWindow = targetWindow * 2500 / 1000;
 
+
     while (tries-->0) {
       delay(500);
 
@@ -441,9 +447,6 @@ void a2dSetup() {
     logger.info("pct=%.0f", pct);
     logger.info("calculated window size = %d ", windowSize);
     logger.error("unable to reach target window size of %d.", expectedSampleWindow);
-    if (bootOverride) {
-      return;
-    }
     if (pct<0) {
       bootError("Is your i2c bus overclocked?");
     } else {
@@ -1040,6 +1043,23 @@ void displayParameters() {
 
 }
 
+void neopixel_colortest() {
+    logger.info("moving color:  %6x", movingColor);
+    neopixel_setPixel(operationIndicator, movingColor);
+    neopixel_render();
+    delay(500);
+
+    logger.info("braking color: %6x", brakingColor);
+    neopixel_setPixel(operationIndicator, brakingColor);
+    neopixel_render();
+    delay(500);
+
+    logger.info("stopped color: %6x", stopColor);
+    neopixel_setPixel(operationIndicator, stopColor);
+    neopixel_render();
+    delay(500);
+}
+
 void neopixel_setup() {
     int ledType = WS2811_STRIP_RGB;
     int ret=neopixel_init(ledType, WS2811_TARGET_FREQ, DMA, GPIO_PIN, led_count+10);
@@ -1055,21 +1075,7 @@ void neopixel_setup() {
     neopixel_setPixel(operationIndicator+1, 0);
     neopixel_render();
 
-    logger.info("moving color:  %6x", movingColor);
-    neopixel_setPixel(operationIndicator, movingColor);
-    neopixel_render();
-    delay(500);
-
-    logger.info("braking color: %6x", brakingColor);
-    neopixel_setPixel(operationIndicator, brakingColor);
-    neopixel_render();
-    delay(500);
-
-    logger.info("stopped color: %6x", stopColor);
-    neopixel_setPixel(operationIndicator, stopColor);
-    neopixel_render();
-    delay(500);
-
+    thread(neopixel_colortest).detach();
 }
 
 void initTime(GtkBuilder *builder) {
