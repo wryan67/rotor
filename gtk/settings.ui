@@ -541,7 +541,7 @@ to wifi and the internet</property>
                     <child>
                       <object class="GtkEntry" id="CalibrationNorth">
                         <property name="visible">True</property>
-                        <property name="can_focus">True</property>
+                        <property name="can_focus">False</property>
                         <property name="editable">False</property>
                         <property name="text" translatable="yes">0</property>
                       </object>
@@ -574,7 +574,7 @@ to wifi and the internet</property>
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkButton">
+                      <object class="GtkButton" id="CalibrationReset">
                         <property name="label" translatable="yes">Reset</property>
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>

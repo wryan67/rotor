@@ -1331,6 +1331,13 @@ void saveSettings() {
     sscanf(eastText,"%d", &east);
     sscanf(westText,"%d", &west);
 
+    if (strlen(eastText)==0) {
+      east=90;
+    }
+    if (strlen(westText)==0) {
+      west=270;
+    }
+
     if (east>45 && east<135 && west>225 && west<315) {
       char calibrationFilename[4096];
       sprintf(calibrationFilename,"%s/calibration", configFolder);
@@ -1674,6 +1681,41 @@ void readSSID() {
   
   fclose(ssidFile);
 }
+int resetCalibration(gpointer data) {
+  logger.info("reset calibration");
+  auto eastEntry = (GtkEntry*) gtk_builder_get_object (settingsBuilder, "CalibrationEast");
+  auto westEntry = (GtkEntry*) gtk_builder_get_object (settingsBuilder, "CalibrationWest");
+
+  gtk_entry_set_text(eastEntry, "90");
+  gtk_entry_set_text(westEntry, "270");
+
+  return false;
+}
+void readCalibration() {
+  int east,west;
+  char eastText[512];
+  char westText[512];
+
+  auto eastEntry = (GtkEntry*) gtk_builder_get_object (settingsBuilder, "CalibrationEast");
+  auto westEntry = (GtkEntry*) gtk_builder_get_object (settingsBuilder, "CalibrationWest");
+
+  char calibrationFilename[4096];
+  sprintf(calibrationFilename,"%s/calibration", configFolder);
+  FILE* calibration = fopen(calibrationFilename,"r");
+  if (!calibration) {
+    return;
+  }
+
+  fscanf(calibration,"%d,%d\n", &east, &west);
+  fclose(calibration);
+ 
+  sprintf(eastText,"%d",east);
+  sprintf(westText,"%d",west);
+
+  gtk_entry_set_text(eastEntry, eastText);
+  gtk_entry_set_text(westEntry, westText);
+}
+
 
 bool timezonesInitialized=false;
 
@@ -1724,6 +1766,7 @@ int showSettings(gpointer data) {
     availableNetworksListBox = (GtkListBox*) gtk_builder_get_object (settingsBuilder, "AvailableNetworks");
 
     readSSID();
+    readCalibration();
 
     if (screenHeight<321) {
       GtkScrolledWindow *sw = (GtkScrolledWindow*) gtk_builder_get_object(settingsBuilder, "RegionScrolledWindow");
@@ -1786,6 +1829,9 @@ int showSettings(gpointer data) {
     g_signal_connect (countryListBox,    "row-selected",  G_CALLBACK (updateTimezones), NULL);
     g_signal_connect (wifiTab,           "focus", G_CALLBACK (setWifiTabFocus), NULL);
     
+    button = gtk_builder_get_object (settingsBuilder, "CalibrationReset");
+    g_signal_connect (button,            "clicked",       G_CALLBACK (resetCalibration),  NULL);
+
 
     availableNetworksListBoxSignal = g_signal_connect (availableNetworksListBox, ssidSignal,     G_CALLBACK (ssidRowSelected),     (char*) ssidSignal);
 
