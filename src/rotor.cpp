@@ -333,12 +333,12 @@ struct MessageWindowData {
   const char     *message;
   bool            terminate;
   GtkApplication *app;
+  GtkWindow      *parent;
 };
 
 
-void gtkWindow(GtkApplication *app, gpointer data) {
-  gtk_application_window_new(app);
 
+void gtkWindow(gpointer data) {
   MessageWindowData *msg = (MessageWindowData*) data;
  
   GtkWidget *dialog = gtk_message_dialog_new ((GtkWindow*)mainWindow,
@@ -347,37 +347,48 @@ void gtkWindow(GtkApplication *app, gpointer data) {
       GTK_BUTTONS_CLOSE,
       msg->message
   );
+  if (msg->parent!=nullptr) {
+    gtk_window_set_transient_for((GtkWindow*)dialog,msg->parent);
+  }
   getScreenResolution();
   thread(hideMouse).detach();
 
   gtk_window_set_title((GtkWindow*)dialog, msg->title);
   gtk_dialog_run((GtkDialog*)dialog);
   gtk_widget_destroy (dialog);
-  g_application_quit(G_APPLICATION(app));
 
 }
 
-void messageWindow(MessageWindowData *msg) {
-  GtkApplication *app = gtk_application_new ("org.rotor", G_APPLICATION_FLAGS_NONE);
-  msg->app=app;
-
-  g_signal_connect    (app, "activate", G_CALLBACK (gtkWindow), msg);
-  g_application_run   (G_APPLICATION (app), 0, nullptr);
-  g_object_unref      (app);
-
-}
-
-void softError(const char* title, const char *message) {
+void softError(const char* title, const char *message, GtkWindow* parent) {
   MessageWindowData *data = new MessageWindowData;
 
   data->message=(char*)message;
   data->title=(char*)title;
   data->terminate=false;
+  data->parent=parent;
 
-  messageWindow(data);
+  gtkWindow(data);
   delete data;
 }
 
+void gtkAppWindow(GtkApplication *app, gpointer data) {
+  gtk_application_window_new(app);
+
+  gtkWindow(data);
+  g_application_quit(G_APPLICATION(app));
+}
+
+
+void applicaitonMessageWindow(MessageWindowData *msg) {
+
+  GtkApplication *app = gtk_application_new ("org.rotor", G_APPLICATION_FLAGS_NONE);
+  msg->app=app;
+
+  g_signal_connect    (app, "activate", G_CALLBACK (gtkAppWindow), msg);
+  g_application_run   (G_APPLICATION (app), 0, nullptr);
+  g_object_unref      (app);
+
+}
 
 void bootError(const char *message) {
   MessageWindowData *error = new MessageWindowData;
@@ -385,8 +396,9 @@ void bootError(const char *message) {
   error->message=message;
   error->title="boot failed";
   error->terminate=true;
+  error->parent=nullptr;
 
-  messageWindow(error);
+  applicaitonMessageWindow(error);
   delete error;
 
   exit(4);
@@ -1346,10 +1358,9 @@ void saveSettings() {
       fclose(calibration);
     } else {
       logger.error("eastText=[%s]",eastText);
-      logger.error("westText=[%s]",westText);
-      
+      logger.error("westText=[%s]",westText);     
       logger.error("calibration settings out of range: e=%d w=%d", east, west);
-      softError("calibration","Calibration out of range error.\nEast must be between 46-134\nWest must be between 226-314");      
+      softError("calibration","Calibration out of range error.\nEast must be between 46-134\nWest must be between 226-314", settingsWindow);      
       return;
     }
 
