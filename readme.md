@@ -94,6 +94,6 @@ To start rotor on boot:
 
 ## Parts list
  
-[Parts List] (https://docs.google.com/spreadsheets/d/144g_11gsdxmeO28szwi-ss_1HRNR7ysNT9Fy6vf18YI/edit?usp=sharing)
+[Parts List](https://docs.google.com/spreadsheets/d/144g_11gsdxmeO28szwi-ss_1HRNR7ysNT9Fy6vf18YI/edit?usp=sharing)
  
  
