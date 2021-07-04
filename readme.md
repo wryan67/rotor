@@ -91,3 +91,9 @@ To start rotor on boot:
 ![screenshot4](https://raw.githubusercontent.com/wryan67/rotor/main/readme/screenshot4.png)
 ![screenshot-tz](https://raw.githubusercontent.com/wryan67/rotor/main/readme/screenshot-tz.png)
 ![screenshot-wifi](https://raw.githubusercontent.com/wryan67/rotor/main/readme/screenshot-wifi.png)
+
+## Parts list
+ 
+[Parts List] (https://docs.google.com/spreadsheets/d/144g_11gsdxmeO28szwi-ss_1HRNR7ysNT9Fy6vf18YI/edit?usp=sharing)
+ 
+ 
