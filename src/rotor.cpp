@@ -11,6 +11,7 @@
 #include <vector>
 #include <mutex>
 #include <algorithm>
+#include <utility>
 
 #include <time.h>
 #include <sys/time.h>
@@ -41,6 +42,11 @@ int  a2dHandle=-1;
 
 bool parked=true;
 FILE *logFile=nullptr;
+
+float calibrationA;
+float calibrationB;
+float calibrationC;
+  int calibrationEast, calibrationWest;
 
 vector<pair<uint64_t, float>*> points;
 bool capturePoints=false;
@@ -1025,8 +1031,12 @@ float getDegree(float volts) {
     float r1 = options.aspectFixedResistorOhms;
     float r2 = (volts * r1 ) / (vS - volts);
       
-    return (r2/options.aspectVariableResistorOhms)*360.0;
-}
+    float iDegree =  (r2/options.aspectVariableResistorOhms)*360.0;
+
+    float calibration = 0;
+
+    return calibration + iDegree;
+  }
 
 
 void timeUpdate() { 
@@ -1328,6 +1338,41 @@ void updateWifi() {
 
 }
 
+
+
+void setCalibrationVariables(int east, int west) {
+  pair<int, int> p1 = { 90, west-180};
+  pair<int, int> p2 = {180,      180};
+  pair<int, int> p3 = {270, east+180};
+
+  double x1 = p1.first;
+  double x2 = p2.first;
+  double x3 = p3.first;
+
+  double y1 = p1.second;
+  double y2 = p2.second;
+  double y3 = p3.second;
+  
+  calibrationA = ( x1*(y3-y2) + x2*(y1-y3)+ x3*(y2-y1) ) /
+                      ( (x1-x2)*(x1-x3)*(x2-x3) );
+
+  calibrationB = (y2 - y1) /
+                 (x2 - x1);
+
+  calibrationB -= calibrationA * (x1 + x2);
+
+  calibrationC = y1 - (calibrationA * x1 * x1) - (calibrationB * x1);
+
+  logger.info("(x1,y1)= %3.0f, %3.0f", x1, y1);
+  logger.info("(x2,y2)= %3.0f, %3.0f", x2, y2);
+  logger.info("(x3,y3)= %3.0f, %3.0f", x3, y3);
+
+  logger.info("a=%11.2e", calibrationA);
+  logger.info("b=%8.3f",  calibrationB);
+  logger.info("c=%8.3f",  calibrationC);
+}
+
+
 void saveSettings() {
 //@@
     
@@ -1356,6 +1401,11 @@ void saveSettings() {
       FILE* calibration = fopen(calibrationFilename,"w");
       fprintf(calibration,"%d,%d\n", east, west);
       fclose(calibration);
+
+      calibrationEast=east;
+      calibrationWest=west;
+      setCalibrationVariables(east,west);
+
     } else {
       logger.error("eastText=[%s]",eastText);
       logger.error("westText=[%s]",westText);     
@@ -1702,13 +1752,8 @@ int resetCalibration(gpointer data) {
 
   return false;
 }
-void readCalibration() {
-  int east,west;
-  char eastText[512];
-  char westText[512];
 
-  auto eastEntry = (GtkEntry*) gtk_builder_get_object (settingsBuilder, "CalibrationEast");
-  auto westEntry = (GtkEntry*) gtk_builder_get_object (settingsBuilder, "CalibrationWest");
+void readCalibration() {
 
   char calibrationFilename[4096];
   sprintf(calibrationFilename,"%s/calibration", configFolder);
@@ -1717,14 +1762,30 @@ void readCalibration() {
     return;
   }
 
-  fscanf(calibration,"%d,%d\n", &east, &west);
+  fscanf(calibration,"%d,%d\n", &calibrationEast, &calibrationWest);
   fclose(calibration);
  
-  sprintf(eastText,"%d",east);
-  sprintf(westText,"%d",west);
+  setCalibrationVariables(calibrationEast, calibrationWest);
+
+  
+}
+
+void initCalibrationSettings() {
+  char eastText[512];
+  char westText[512];
+
+  auto eastEntry = (GtkEntry*) gtk_builder_get_object (settingsBuilder, "CalibrationEast");
+  auto westEntry = (GtkEntry*) gtk_builder_get_object (settingsBuilder, "CalibrationWest");
+
+  readCalibration();
+
+  sprintf(eastText,"%d",calibrationEast);
+  sprintf(westText,"%d",calibrationWest);
 
   gtk_entry_set_text(eastEntry, eastText);
   gtk_entry_set_text(westEntry, westText);
+
+  
 }
 
 
@@ -1777,7 +1838,7 @@ int showSettings(gpointer data) {
     availableNetworksListBox = (GtkListBox*) gtk_builder_get_object (settingsBuilder, "AvailableNetworks");
 
     readSSID();
-    readCalibration();
+    initCalibrationSettings();
 
     if (screenHeight<321) {
       GtkScrolledWindow *sw = (GtkScrolledWindow*) gtk_builder_get_object(settingsBuilder, "RegionScrolledWindow");
@@ -2007,6 +2068,7 @@ int main(int argc, char **argv) {
   }
 
   getScreenResolution();
+  readCalibration();
   
   thread(initializeTimezones).detach();
   thread(hideMouse).detach();
