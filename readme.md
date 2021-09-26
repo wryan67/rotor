@@ -30,7 +30,7 @@ Note: this step may need to be reapeated after installing a display device drive
 
     $ sudo vi /boot/config.txt 
 
-Next, look for the i2c_arm parameter.  Note that if you've already enable the i2c bus via raspi-config, then you may have multiple lines in the config.txt file that have i2c_arm.  Look for the one that is uncommented. 
+Next, look for the i2c_arm parameter.  Note that if you've already enable the i2c bus via raspi-config, then you may have multiple lines in the config.txt file that have i2c_arm.  Look for the one that is uncommented.   If there are multiple "dtparam=i2c_arm=on" lines that are uncommented, comment out all but one.
 
     #dtparam=i2c_arm=on
     - or -
