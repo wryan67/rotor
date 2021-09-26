@@ -20,6 +20,14 @@ Using raspi-config, enable the I2C and SPI busses:
     Select Interface Options.
     Select the SPI interface and enable it.
     Select the SPI interface and enable it.
+
+Disable screen blanking
+
+    $ sudo raspi-config
+    
+    Select Display Options
+    Select Screen blanking and disable it.
+
     
 
 ## Requirements
