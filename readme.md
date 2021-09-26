@@ -13,20 +13,20 @@ System Libraries:
 
 ## Configuration
 
-Using raspi-config, enable the I2C and SPI busses:
+Using raspi-config, these options can be manuplated.  Enabling the I2C and SPI busses are required.
+
+* System Options
+  * Set the hostname
+  * Set the pasword for the pi user
+* Display Options
+  * Disable screen blanking
+* Interface Options
+  * Enable the I2C bus
+  * Enable the SPI bus
+
+Starting raspi-config:
 
     $ sudo raspi-config
-    
-    Select Interface Options.
-    Select the SPI interface and enable it.
-    Select the SPI interface and enable it.
-
-Disable screen blanking
-
-    $ sudo raspi-config
-    
-    Select Display Options
-    Select Screen blanking and disable it.
 
     
 
