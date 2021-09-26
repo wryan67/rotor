@@ -29,6 +29,7 @@ Using raspi-config, these options can be manuplated.  Enabling the I2C and SPI b
   * Enable the I2C bus
   * Enable the SPI bus
   * Enable the VNC server
+  * Enable the SSH server
 
 Starting raspi-config:
 
