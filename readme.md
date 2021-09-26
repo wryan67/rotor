@@ -15,6 +15,8 @@ System Libraries:
 
 Overclocking the I2C bus is required to achive the desired 2500 samples per second.  Edit the /boot/config.txt file using:
 
+Note: this step may need to be reapeated after installing a display device driver
+
     $ sudo vi /boot/config.txt 
 
 Next, look for the i2c_arm parameter.  Note that if you've already enable the i2c bus via raspi-config, then you may have multiple lines in the config.txt file that have i2c_arm.  Look for the one that is uncommented. 
