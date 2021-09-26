@@ -11,6 +11,17 @@ System Libraries:
 
     $ sudo apt install libgtk-3-dev glade xdotool gawk ksh
 
+## Configuration
+
+Using raspi-config, enable the I2C and SPI busses:
+
+    $ sudo raspi-config
+    
+    Select Interface Options.
+    Select the SPI interface and enable it.
+    Select the SPI interface and enable it.
+    
+
 ## Requirements
 
 Overclocking the I2C bus is required to achive the desired 2500 samples per second.  Edit the /boot/config.txt file using:
