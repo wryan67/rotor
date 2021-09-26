@@ -7,9 +7,14 @@ The rotor tested with this software utilizes a 500Ω variable resistor which loo
 
 ### Prerequisites:
 
-System Libraries:
+Required system Libraries:
 
-    $ sudo apt install libgtk-3-dev glade xdotool gawk ksh vim
+    $ sudo apt install libgtk-3-dev glade xdotool gawk ksh
+
+Optional system Libraries:
+
+    $ sudo apt vim tigervnc-standalone-server  tigervnc-xorg-extension tigervnc-scraping-server
+
 
 ## Configuration
 
@@ -23,12 +28,12 @@ Using raspi-config, these options can be manuplated.  Enabling the I2C and SPI b
 * Interface Options
   * Enable the I2C bus
   * Enable the SPI bus
+  * Enable the VNC server
 
 Starting raspi-config:
 
     $ sudo raspi-config
-
-    
+   
 
 ## Requirements
 
