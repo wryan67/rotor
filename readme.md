@@ -9,7 +9,7 @@ The rotor tested with this software utilizes a 500Ω variable resistor which loo
 
 System Libraries:
 
-    $ sudo apt install libgtk-3-dev glade xdotool gawk ksh
+    $ sudo apt install libgtk-3-dev glade xdotool gawk ksh vim
 
 ## Configuration
 
