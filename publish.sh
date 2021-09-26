@@ -1,10 +1,11 @@
 #!/bin/ksh
 
 ROTOR_USER=pi
-ROTOR_PI=$ROTOR_USER@rotor2
+ROTOR_HOST=localhost
+ROTOR_PI=$ROTOR_USER@$ROTOR_HOST
 
-echo compile
 if [ "$1" != "-c" ];then
+  echo compile
   make
   [ $? != 0 ] && exit 2
 fi
@@ -15,9 +16,14 @@ tar cf /tmp/rotor.tar fonts/*.ttf \
                       -C ../gtk `cd gtk; ls *.ui *.css` \
                       -C ../scripts deploy.sh 
                       
-scp /tmp/rotor.tar $ROTOR_PI:/tmp/rotor.tar || exit $?
+if [ "$ROTOR_HOST" = "localhost" ];then
+  chmod a+r /tmp/rotor.tar
+else
+  scp /tmp/rotor.tar $ROTOR_PI:/tmp/rotor.tar || exit $?
+fi
 
-echo set permissions/deploy
+echo extract
 ssh $ROTOR_PI "mkdir -p /home/$ROTOR_USER/bin; cd /home/$ROTOR_USER/bin && tar xf /tmp/rotor.tar"
+echo deploy
 ssh $ROTOR_PI /home/$ROTOR_USER/bin/deploy.sh
 

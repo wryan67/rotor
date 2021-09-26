@@ -1,4 +1,9 @@
 #!/bin/ksh
+set -a
+
+. scripts/setenv
+
+BOOTOVERRIDE=1
 
 sudo chown root bin/rotor
 [ $? != 0 ] && exit 2
