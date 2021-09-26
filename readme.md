@@ -15,6 +15,12 @@ Optional system Libraries:
 
     $ sudo apt vim tigervnc-standalone-server  tigervnc-xorg-extension tigervnc-scraping-server
 
+## WiringPi
+
+This step is required on RPi 4B.   Follow the instrctions on this website to upgrade to version 2.52
+
+* http://wiringpi.com/wiringpi-updated-to-2-52-for-the-raspberry-pi-4b/
+
 
 ## Configuration
 
@@ -107,12 +113,13 @@ To start rotor on boot:
 * Copy all files from the scripts folder (in this project) to $HOME/bin, then setup lxsession autostart using these commands:
 
       $ mkdir -p /home/pi/bin
-      $ cd scripts
-      $ cp -p * /home/pi/bin
+      $ cp -p /home/pi/rotor/scripts/* /home/pi/bin
+      $ cp -p /home/pi/rotor/bin/rotor /home/pi/bin
       $ cd /home/pi/bin
       $ sudo chown root rotor
       $ sudo chmod g+w  rotor
       $ sudo chmod u+s  rotor
+      $ sudo chmod a+x  rotor
       $ mkdir -p ~/.config/lxsession/LXDE-pi/
       $ ln /home/pi/bin/autostart ~/.config/lxsession/LXDE-pi/autostart
 
