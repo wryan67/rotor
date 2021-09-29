@@ -123,6 +123,10 @@ To start rotor on boot:
       $ mkdir -p ~/.config/lxsession/LXDE-pi/
       $ ln /home/pi/bin/autostart ~/.config/lxsession/LXDE-pi/autostart
 
+### Build
+
+![build2](https://raw.githubusercontent.com/wryan67/rotor/main/readme/build/build2.jpg)
+
 ### Screenshots:
 
 ![screenshot3](https://raw.githubusercontent.com/wryan67/rotor/main/readme/screenshot3.png)
