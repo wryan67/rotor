@@ -125,6 +125,7 @@ To start rotor on boot:
 
 ### Build
 
+This is the 2nd controller I built:
 ![build2](https://raw.githubusercontent.com/wryan67/rotor/main/readme/build/build2.jpg)
 
 ### Screenshots:
