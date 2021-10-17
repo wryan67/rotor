@@ -1,7 +1,7 @@
 #!/bin/ksh
 
 ROTOR_USER=pi
-ROTOR_HOST=localhost
+ROTOR_HOST=rotor3
 ROTOR_PI=$ROTOR_USER@$ROTOR_HOST
 
 if [ "$1" != "-c" ];then

@@ -1,6 +1,9 @@
 #!/bin/ksh
 set -a
 
+# R2
+RESISTOR=1100
+
 # WiringPi      Header      BCM
 OE=3            # 15        22
 POWER=22        # 31        6

@@ -3,8 +3,6 @@ set -a
 
 . $HOME/bin/setenv
 
-RESISTOR=1375
-
 if [ "$1" != "boot" ];then
   $HOME/bin/stop.sh
 else

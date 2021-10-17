@@ -1,0 +1,8 @@
+#
+# add this line to your .bashrc
+#
+# . $HOME/bin/bashrc
+#
+#
+alias start='start.sh'
+alias stop='stop.sh'
