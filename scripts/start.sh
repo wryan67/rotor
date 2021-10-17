@@ -3,6 +3,7 @@ set -a
 
 . $HOME/bin/setenv
 
+
 if [ "$1" != "boot" ];then
   $HOME/bin/stop.sh
 else
