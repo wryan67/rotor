@@ -132,6 +132,8 @@ This is the 2nd controller I built:
 
 ![screenshot3](https://raw.githubusercontent.com/wryan67/rotor/main/readme/screenshot3.png)
 ![screenshot4](https://raw.githubusercontent.com/wryan67/rotor/main/readme/screenshot4.png)
+
+In order to access the configuration screens, click anywhere on the time clock.
 ![screenshot-tz](https://raw.githubusercontent.com/wryan67/rotor/main/readme/screenshot-tz.png)
 ![screenshot-wifi](https://raw.githubusercontent.com/wryan67/rotor/main/readme/screenshot-wifi.png)
 
