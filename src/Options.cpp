@@ -10,8 +10,8 @@ void Options::usage() {
 	fprintf(stderr, "  -d = debug\n");
 	fprintf(stderr, "  -f = full screen\n");
 	fprintf(stderr, "  -c = aspect voltage channel (default=0)\n");
-	fprintf(stderr, "  -v = aspect variable resistor ohms (default=500)\n");
-	fprintf(stderr, "  -x = aspect fixed resistor ohms (default=1375)\n");
+	fprintf(stderr, "  -v = aspect variable resistor ohms (default=%d)\n", options.aspectVariableResistorOhms);
+	fprintf(stderr, "  -x = aspect fixed resistor ohms (default=%d)\n", options.aspectFixedResistorOhms);
     fprintf(stderr, "  -l  = limit switch input WiringPi GPIO pin");
 	exit(1);
 }
