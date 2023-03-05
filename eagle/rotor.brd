@@ -159,6 +159,15 @@
 <hole x="80.01" y="3.81" drill="3"/>
 <dimension x1="-1.27" y1="0" x2="-1.27" y2="77.47" x3="-2.54" y3="38.735" textsize="1.778" layer="20"/>
 <dimension x1="0" y1="78.74" x2="83.82" y2="78.74" x3="41.91" y3="81.28" textsize="1.778" layer="20"/>
+<dimension x1="3.81" y1="58.42" x2="3.81" y2="73.66" x3="-3.81" y3="66.04" textsize="1.778" layer="20"/>
+<dimension x1="12.7" y1="73.66" x2="3.81" y2="73.66" x3="8.255" y3="82.55" textsize="1.778" layer="20"/>
+<dimension x1="12.7" y1="8.89" x2="3.81" y2="8.89" x3="8.255" y3="-3.81" textsize="1.778" layer="20"/>
+<dimension x1="8.89" y1="3.81" x2="8.89" y2="10.16" x3="-6.35" y3="6.985" textsize="1.778" layer="20"/>
+<circle x="7.62" y="27.94" radius="3.175" width="0.1524" layer="105"/>
+<hole x="7.62" y="27.94" drill="3"/>
+<dimension x1="3.81" y1="10.16" x2="3.81" y2="27.94" x3="-10.16" y3="19.05" textsize="1.778" layer="20"/>
+<circle x="13.97" y="73.66" radius="3.175" width="0.1524" layer="105"/>
+<hole x="13.97" y="73.66" drill="3"/>
 </plain>
 <libraries>
 <library name="txs0108e">
