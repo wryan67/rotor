@@ -13,11 +13,11 @@
 <layer number="17" name="Pads" color="2" fill="1" visible="no" active="no"/>
 <layer number="18" name="Vias" color="2" fill="1" visible="no" active="no"/>
 <layer number="19" name="Unrouted" color="6" fill="1" visible="no" active="no"/>
-<layer number="20" name="Dimension" color="15" fill="1" visible="no" active="no"/>
+<layer number="20" name="Dimension" color="24" fill="1" visible="no" active="no"/>
 <layer number="21" name="tPlace" color="7" fill="1" visible="no" active="no"/>
 <layer number="22" name="bPlace" color="7" fill="1" visible="no" active="no"/>
-<layer number="23" name="tOrigins" color="15" fill="1" visible="no" active="no"/>
-<layer number="24" name="bOrigins" color="15" fill="1" visible="no" active="no"/>
+<layer number="23" name="tOrigins" color="13" fill="1" visible="no" active="no"/>
+<layer number="24" name="bOrigins" color="13" fill="1" visible="no" active="no"/>
 <layer number="25" name="tNames" color="7" fill="1" visible="no" active="no"/>
 <layer number="26" name="bNames" color="7" fill="1" visible="no" active="no"/>
 <layer number="27" name="tValues" color="7" fill="1" visible="no" active="no"/>
@@ -12028,7 +12028,7 @@ type 0309, grid 2.5 mm</description>
 <part name="R19" library="test" deviceset="R-US_" device="M0805" package3d_urn="urn:adsk.eagle:package:6240587/1" value="1k"/>
 <part name="C8" library="test" deviceset="C-US" device="C0805" package3d_urn="urn:adsk.eagle:package:6240337/1" value="104"/>
 <part name="C9" library="test" deviceset="C-US" device="C0805" package3d_urn="urn:adsk.eagle:package:6240337/1" value="104"/>
-<part name="J9" library="TB004-508-02BE" deviceset="TB004-508-02BE" device="" value="Rotor-Pwr-LED"/>
+<part name="J9" library="TB004-508-02BE" deviceset="TB004-508-02BE" device="" value="P.LED"/>
 <part name="SUPPLY5" library="Power_Symbols" library_urn="urn:adsk.eagle:library:16502351" deviceset="EGND" device="" value="GND"/>
 <part name="R20" library="test" deviceset="R-US_" device="M0805" package3d_urn="urn:adsk.eagle:package:6240587/1" value="1k"/>
 <part name="T1" library="test" deviceset="2N2222" device="CBE" value="2N2222"/>
@@ -12038,8 +12038,8 @@ type 0309, grid 2.5 mm</description>
 <part name="SUPPLY3" library="Power_Symbols" library_urn="urn:adsk.eagle:library:16502351" deviceset="EGND" device="" value="GND"/>
 <part name="J4" library="TB004-508-03BE" deviceset="TB004-508-03BE" device="" value="Antenna"/>
 <part name="SUPPLY4" library="Power_Symbols" library_urn="urn:adsk.eagle:library:16502351" deviceset="EGND" device="" value="GND"/>
-<part name="TEST-SW" library="ladyada" deviceset="DPDT-SWITCH" device=""/>
-<part name="J10" library="TB004-508-02BE" deviceset="TB004-508-02BE" device=""/>
+<part name="TEST-SW" library="ladyada" deviceset="DPDT-SWITCH" device="" value="Test-Switch"/>
+<part name="J10" library="TB004-508-02BE" deviceset="TB004-508-02BE" device="" value="500Ω ├"/>
 <part name="SUPPLY6" library="Power_Symbols" library_urn="urn:adsk.eagle:library:16502351" deviceset="EGND" device="" value="GND"/>
 </parts>
 <sheets>
@@ -12782,7 +12782,6 @@ type 0309, grid 2.5 mm</description>
 <segment>
 <wire x1="-220.98" y1="116.84" x2="-220.98" y2="104.14" width="0.1524" layer="91"/>
 <label x="-45.72" y="96.52" size="1.778" layer="95"/>
-<label x="-180.34" y="96.52" size="1.778" layer="95"/>
 <pinref part="J4" gate="G$1" pin="1"/>
 <label x="-220.98" y="106.68" size="1.778" layer="95" rot="R90"/>
 <wire x1="-220.98" y1="104.14" x2="-259.08" y2="104.14" width="0.1524" layer="91"/>
@@ -13082,17 +13081,22 @@ type 0309, grid 2.5 mm</description>
 <wire x1="35.56" y1="-81.28" x2="33.02" y2="-81.28" width="0.1524" layer="91"/>
 </segment>
 </net>
-<net name="N$13" class="0">
+<net name="INPUT" class="0">
 <segment>
 <pinref part="TEST-SW" gate="G$1" pin="C-1"/>
 <pinref part="TEST-SW" gate="G$1" pin="C-2"/>
 <wire x1="-289.56" y1="104.14" x2="-284.48" y2="104.14" width="0.1524" layer="91"/>
 <wire x1="-284.48" y1="104.14" x2="-279.4" y2="104.14" width="0.1524" layer="91"/>
 <wire x1="-284.48" y1="104.14" x2="-284.48" y2="96.52" width="0.1524" layer="91"/>
-<wire x1="-284.48" y1="96.52" x2="-17.78" y2="96.52" width="0.1524" layer="91"/>
 <junction x="-284.48" y="104.14"/>
 <pinref part="R3" gate="G$1" pin="1"/>
+<wire x1="-284.48" y1="96.52" x2="-157.48" y2="96.52" width="0.1524" layer="91"/>
+<wire x1="-157.48" y1="96.52" x2="-17.78" y2="96.52" width="0.1524" layer="91"/>
 <wire x1="-17.78" y1="96.52" x2="-17.78" y2="124.46" width="0.1524" layer="91"/>
+<pinref part="R2" gate="G$1" pin="1"/>
+<wire x1="-157.48" y1="111.76" x2="-157.48" y2="96.52" width="0.1524" layer="91"/>
+<junction x="-157.48" y="96.52"/>
+<label x="-193.04" y="96.52" size="1.778" layer="95"/>
 </segment>
 </net>
 <net name="N$14" class="0">
