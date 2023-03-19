@@ -13,7 +13,7 @@ CW=25           # 37        26
 LIMIT=21        # 29        5
 A2DDR=2         # 13        27
 
-SPS=5
+SPS=7
 
 ACTIVATE=0
 DEACTIVATE=1
