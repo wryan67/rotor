@@ -3,6 +3,11 @@ set -a
 
 . $HOME/bin/setenv
 
+[ "$DISPLAY" = "" ] && DISPLAY=:0
+
+nohup zenity --progress --text="System is Busy" &
+BUSYMSG=$!
+
 getIdle() {
   IDLE=$(top -bn1 | sed -ne 's/^%cpu.*ni, *\(.*\) *id,.*/\1/pi')
   echo "$(date '+%Y%m%d %H:%M:%S') $IDLE" >> $HOME/logs/idletime.log
@@ -23,6 +28,7 @@ idleCheck() {
     fi
   done
   sleep 5
+  kill $BUSYMSG > /dev/null 2>&1
 }
 
 
