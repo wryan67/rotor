@@ -5,7 +5,8 @@ set -a
 
 [ "$DISPLAY" = "" ] && DISPLAY=:0
 
-nohup zenity --progress --text="System is busy..." &
+xdotool mousemove `fbset -s | sed -ne 's/^mode "\([0-9]*\)x\([0-9]*\)".*/\1 \2/p'`
+zenity --progress --pulsate --no-cancel --text="System is busy..." &
 BUSYMSG=$!
 
 getIdle() {
@@ -44,7 +45,6 @@ if [ "$DISPLAY" = "" ];then
   DISPLAY=":0"
 fi
 
-#xdotool mousemove `fbset -s | sed -ne 's/^mode "\([0-9]*\)x\([0-9]*\)".*/\1 \2/p'`
 
 cd $HOME/bin
 
