@@ -1,4 +1,6 @@
 *~
+*.save
 nohup.out
 bin/
 tmp/
+junk/

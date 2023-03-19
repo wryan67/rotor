@@ -128,6 +128,7 @@ bool  forceVoltageDebugDisplay=false;
 
 mutex displayLock;
 mutex pickSSID;
+mutex conversionInProgress;
 
 GtkWidget *degreeInputBox;
 
@@ -199,21 +200,46 @@ void hideMouse() {
 }
 
 // float lastVolts=999;
+long long lastConversion=-1;
 
 void voltageCatcher() {
+  if (!conversionInProgress.try_lock()) {
+    return;
+  }
+
   float volts = readVoltage(a2dHandle);
   currentVolts=volts;
+  
 
   switch (sampleMode) {
+    case -1: {
+      conversionInProgress.unlock();
+      return;
+    }
     case 0: {
+      ++windowSize;
+      conversionInProgress.unlock();
+      return;
+    }
+    case 1: {
+      totalSampleVolts+=volts;      
+      samples.push_back(volts);
+
+      if (samples.size()>=windowSize) {
+        ++sampleMode;
+      }      
+    }
+    case 2: {
+      if (lastConversion<0) lastConversion=currentTimeMillis();
+
       if (skipWindow) {
         long long now = currentTimeMillis();
         if (now<skipTime) {
+          conversionInProgress.unlock();
           return;
         }
         skipWindow=false;
       }
-
       
       totalSampleVolts+=volts;      
       samples.push_back(volts);
@@ -249,21 +275,12 @@ void voltageCatcher() {
           lastDisplayVolts=volts;
           forceVoltageDebugDisplay=false;
       }
+      conversionInProgress.unlock();
       return;
-    }
-    case 1: {
-      ++windowSize;
-      return;
-    }
-    case 2: {
-      totalSampleVolts+=volts;      
-      samples.push_back(volts);
-
-      if (samples.size()>=windowSize) {
-        sampleMode=0;
-      }      
     }
   }
+  conversionInProgress.unlock();
+
 }
 
 
@@ -399,6 +416,7 @@ void applicaitonMessageWindow(MessageWindowData *msg) {
 void bootError(const char *message) {
   MessageWindowData *error = new MessageWindowData;
 
+  logger.error(message);
   error->message=message;
   error->title="boot failed";
   error->terminate=true;
@@ -446,58 +464,72 @@ void a2dSetup() {
         bootError(message);
     }
 
-    options.sps=5;
-    logger.info("channel=%d; gain=%d; sps=%d", options.aspectVoltageChannel, options.gain, options.sps);
+    // options.sps=5;
+
+// 0 : 000 : 8 SPS
+// 1 : 001 : 16 SPS
+// 2 : 010 : 32 SPS
+// 3 : 011 : 64 SPS
+// 4 : 100 : 128 SPS (default)
+// 5 : 101 : 250 SPS
+// 6 : 110 : 475 SPS
+// 7 : 111 : 860 SPS
+
+    unsigned int ads1115SPS[8] = { 8, 16, 32, 64, 128, 250, 475, 860 };
+
+    unsigned int expectedSPS = 0.95*ads1115SPS[options.sps];
+    logger.info("channel=%d; gain=%d; sps=%d", options.aspectVoltageChannel, options.gain, ads1115SPS[options.sps]);
+
+    int   tries=3;
 
     wiringPiISR(options.a2dDataReady,INT_EDGE_FALLING, voltageCatcher);
     setADS1115ContinuousMode(a2dHandle, options.aspectVoltageChannel, options.gain, options.sps);
 
-    float targetPeriods = 3;
-    float sixtyHzPeriod = 1000.0 * ( 1.0 / 60.0); // 1000 ms * 1/60;
-    float targetWindow  = 16.7 / 4;  // 60Hz period / 4;  //ms
+    // float targetPeriods = 3;
+    // float sixtyHzPeriod = 1000.0 * ( 1.0 / 60.0); // 1000 ms * 1/60;
+    // float targetWindow  = sixtyHzPeriod / 4;  // 60Hz period / 4;  //ms   4.2 ms
 
-    logger.info("60Hz period = %.1f; targetPeriods=%.0f; targetWindow=%.1fms", sixtyHzPeriod, targetPeriods, targetWindow);
+    // logger.info("60Hz period = %.1fms; targetPeriods=%.0f; targetWindow=%.1fms", sixtyHzPeriod, targetPeriods, targetWindow);
 
-    int   tries=3;
-    float pct;
-    int   expectedSampleWindow = targetWindow * 2500 / 1000;
-
+ 
+    long long elapsed;
+    unsigned int savedSize;
 
     while (tries-->0) {
-      delay(500);
+      delay(100);
 
-      sampleMode=-1;
-      delay(5);
       windowSize=0;
       totalSampleVolts=0;
       totalSamples=0;
       lastDisplayVolts=-9;
       samples.clear();
       forceVoltageDebugDisplay=false;
+    
+      skipWindow=false;
+      ++sampleMode;
+      auto startTime = currentTimeMillis();
 
-      sampleMode = 1;
-      usleep(targetWindow*1000);
+      usleep(1000*1000);
+      savedSize = windowSize;
+      elapsed  = currentTimeMillis()-startTime;
+      windowSize=20*windowSize/1000;
       ++sampleMode;
 
+      logger.info("samples captured= %d; elapsed=%lld", savedSize, elapsed);
       logger.info("window size = %d", windowSize);
 
-      pct = 100 * ((long)windowSize-expectedSampleWindow) / ((expectedSampleWindow+windowSize)/2.0);
-      if (abs(pct)<=11) {
+
+      if (savedSize > expectedSPS) {
         thread(cableMonitor).detach();
         return;
       }
       logger.info("retying...");
+      usleep(1000*1000);
     }
-    logger.info("pct=%.0f", pct);
-    logger.info("calculated window size = %d ", windowSize);
-    logger.error("unable to reach target window size of %d.", expectedSampleWindow);
-    if (pct<0) {
-      bootError("Is your i2c bus overclocked?");
-    } else {
-      logger.error("Target window is larger than expected.");
-      bootError("Unknown error, check logs");
-    }
-    exit(19);
+    logger.error("Is your i2c bus overclocked?");
+    char msg[2048];
+    sprintf(msg,"SPS=%d, which is smaller than expected (%d).", savedSize, expectedSPS);
+    bootError(msg);
 }
 
 int textBoxWidgetUpdate(gpointer data) {
@@ -1970,6 +2002,7 @@ int main(int argc, char **argv) {
   GtkBuilder *uiBuilder;
   GObject    *button;
   GError     *error=nullptr;
+
 
   int rs=setuid(0);
   if (rs<0) {

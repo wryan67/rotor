@@ -36,6 +36,7 @@ public:
     int      LimitSwitch                    = 0;
 
 
+
     char *sampleFileName;
     FILE *sampleFile;
 
