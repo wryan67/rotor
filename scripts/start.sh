@@ -5,7 +5,7 @@ set -a
 
 [ "$DISPLAY" = "" ] && DISPLAY=:0
 
-nohup zenity --progress --text="System is Busy" &
+nohup zenity --progress --text="System is busy..." &
 BUSYMSG=$!
 
 getIdle() {
