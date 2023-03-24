@@ -6,7 +6,7 @@ The rotor tested with this software utilizes a 500Ω variable resistor which loo
 
 A special thanks to [PCBWay.com](http://www.pcbway.com) for supplying the professionally made PCB board!
 
-<img src="[url](https://raw.githubusercontent.com/wryan67/rotor/main/readme/A00446B9-4273-41D1-B8A7-60C33012C3A0.jpeg)" alt="pcbway.com" width="150">
+<img src="[url](https://raw.githubusercontent.com/wryan67/rotor/main/readme/A00446B9-4273-41D1-B8A7-60C33012C3A0.jpeg)" alt="pcbway.com" width="150" />
 
 
 ### Prerequisites:
