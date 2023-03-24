@@ -2,13 +2,15 @@ Antenna Rotor Controller
 ------------------------
 This program is designed to work with any rotor that uses a variable resistor for it's aspect indicator and limit swithes to prevent turning past the starting/stopping point.  Checkout the readme folder for display pinouts and a [[circuit diagram]](https://raw.githubusercontent.com/wryan67/rotor/main/schematics/drawio/rotor.png) for the system.
 
-The rotor tested with this software utilizes a 500Ω variable resistor which looks like this:  
-<img src="https://raw.githubusercontent.com/wryan67/rotor/main/readme/aspect%20indicator.jpg" alt="aspect indicator" width=200 />
-
 A special thanks to [PCBWay.com](http://www.pcbway.com) for supplying the professionally made PCB board!  
 
 <a target="_blank" href="http://www.pcbway.com"><img src="https://raw.githubusercontent.com/wryan67/rotor/main/readme/A00446B9-4273-41D1-B8A7-60C33012C3A0.jpeg" alt="pcbway.com" height="200" /></a>
 <a target="_blank" href="https://photos.google.com/share/AF1QipMh1kM5oXzNDOKTMCzwKs_AiYNHa9dS1A7hEjA8LbRkN118HoC3U-g50B6WnR7NWg?key=R2h4bFNzX3lobkJYb0NoMWVWZEsyRjdqQXNfTGRn"><img src="https://raw.githubusercontent.com/wryan67/rotor/main/readme/build/build3.jpg" alt="build with pcbway.com" height=200 /></a>
+
+
+### Rotor Aspect Indicator
+This system was designed around, and tested using a "Tail Twister" Model T2X - Rotator.  The Tail Twister utilizes a 500Ω variable resistor to ascertain the antenna's current direction.  The 500Ω variable resistor looks like this:  
+<img src="https://raw.githubusercontent.com/wryan67/rotor/main/readme/aspect%20indicator.jpg" alt="aspect indicator" width=200 />
 
 
 ### Prerequisites:
