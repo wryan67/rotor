@@ -4,6 +4,9 @@ This program is designed to work with any rotor that uses a variable resistor fo
 
 The rotor tested with this software utilizes a 500Ω variable resistor which looks like this:  [[variable resistor]](https://raw.githubusercontent.com/wryan67/rotor/main/readme/aspect%20indicator.jpg)
 
+A special thanks to PCBWay.com for supplying the professionally made PCB board!
+
+![PCBWay.com](https://raw.githubusercontent.com/wryan67/rotor/main/readme/A00446B9-4273-41D1-B8A7-60C33012C3A0.jpeg)
 
 ### Prerequisites:
 
